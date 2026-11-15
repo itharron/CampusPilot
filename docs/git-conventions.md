@@ -59,12 +59,26 @@ feat(security): 按 IP 限制每日请求数与 token 消耗
 
 ## 三、分支与合并
 
-- `main` 保持可运行；功能开发走 `feat/<topic>` 分支。
-- 提交前本地至少通过：`npm run typecheck`。
-- 合并到 `main` 前确认 `npm run dev` 能正常启动、页面能收到流式回复。
+从 2026-11-16 起，**一个改动一个分支**，推分支后再线性合并回 `main`；此前直接提交到 `main` 的历史不追溯补分支。
+
+1. 从最新 `main` 切分支，分支名体现内容：`feat/mobile-layout`、`fix/quota-429`、`chore/tunnel-host`、`docs/branch-workflow`。
+2. 在该分支上提交并推送：`git push -u origin <branch>`。
+3. 合并回 `main`，不使用 merge commit：
+
+   ```powershell
+   git checkout main
+   git merge --ff-only <branch>
+   git push origin main
+   git branch -d <branch>
+   git push origin --delete <branch>   # 远端分支不保留，提交本身仍在 main 上
+   ```
+
+4. `main` 始终保持可部署；合并前本地至少通过 `npm run typecheck`，涉及交互的改动再确认 `npm run dev` 能收到流式回复。
+5. 报告改动时说明分支名、提交号、该分支改了什么，以及合并后 `main` 的提交数。
 
 ## 四、禁止事项
 
 - 禁止提交 `.env`、任何真实 API Key、账号口令、内网地址。
 - 禁止提交 `node_modules/`、`dist/`（已在 `.gitignore` 中忽略）。
 - 禁止把不相关改动混进同一个提交，例如格式化全仓库。
+- 禁止在 `main` 上直接提交（2026-11-16 起）。
