@@ -138,13 +138,45 @@ Copy-Item .env.example .env     # 这是一条 PowerShell 命令，在项目根�
 
 ```ini
 LLM_API_KEY=sk-xxxxxxxx
-LLM_BASE_URL=https://api.openai.com/v1     # 换成你能访问的 OpenAI 兼容地址
-LLM_MODEL=gpt-4o-mini
+LLM_BASE_URL=https://api.deepseek.com      # 换成你能访问的 OpenAI 兼容地址
+LLM_MODEL=deepseek-v4-pro                  # 必须是该服务真正支持的模型名
 ```
 
 > `.env` 已被 `.gitignore` 忽略。**不要**把 Key 写进任何 `.ts` / `.vue` 文件，也不要提交 `.env`。
 > 留空 `LLM_API_KEY` 时启动日志会打印 `mock 演示模式`，页面顶部显示 Mock 徽标。
 > 如果填了 Key 但接口不可达（例如本机访问不了 `api.openai.com`），回答会自动降级为本地知识库模板，并在提示里说明「模型服务暂时不可用」。
+
+#### 真实模型模式（不走 mock）
+
+1. **base URL 与模型名必须来自同一家服务。** 最稳的确认方式是先查模型列表（不消耗额度）：
+
+   ```powershell
+   curl.exe -s https://api.deepseek.com/models -H "Authorization: Bearer $env:LLM_API_KEY"
+   ```
+
+   返回的 `data[].id` 才是可填进 `LLM_MODEL` 的值。填了服务商不认的模型名会被直接拒绝（`400`，错误体里会列出 supported model names），此时整条链路回退到本地模板。
+
+2. **启动后确认模式是 live。** 配置只在启动时读取，改完 `.env` 必须重启后端：
+
+   ```powershell
+   curl.exe -s http://localhost:8787/api/health
+   # 期望：{"ok":true,"mode":"live","model":"deepseek-v4-pro",...}
+   ```
+
+   `mode` 仍是 `mock` 说明 Key 没被读到：检查是不是在当前 PowerShell 里设过空的环境变量（`$env:LLM_API_KEY=''` 等于删除变量，会让 dotenv 回填失败），或 `.env` 不在仓库根目录 / `server` 目录下。
+
+3. **看 SSE 判断是否真的走了远端。** 正常回答不会有 `event: error`，页面也不会出现「模型服务暂时不可用，以上内容来自本地知识库。」；`event: meta` 里的 `retrieval.name` 仍显示检索方式（默认 `bm25`），`event: done` 里的 `tokens` 是服务端记账口径（按字符数估算，非服务商真实 usage）。
+
+4. **常见失败对照**：
+
+   | 现象 | 原因 | 处理 |
+   | --- | --- | --- |
+   | `400` + supported model names | `LLM_MODEL` 不是该服务的模型 | 按第 1 步列出的 id 改 `.env` 并重启 |
+   | `401` | Key 无效或已撤销 | 换 Key |
+   | `fetch failed` / 超时 | base URL 本机不可达、`LLM_TIMEOUT_MS` 太小 | 换可访问地址或调大超时 |
+   | 回答末尾出现「来自本地知识库」 | 上述任一错误触发兜底 | 修正后重启再试，**不要连续重试** |
+
+> 真实模式下每次提问都会消耗服务商额度；本项目自带 20 次/分钟限流与每日 60 次 / 12 万 token 额度护栏，排查配置时优先用 `/models` 与 `/api/health` 这类零成本接口。
 
 ### 3.4 启动
 
