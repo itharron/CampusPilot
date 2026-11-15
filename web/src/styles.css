@@ -44,6 +44,9 @@ button {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* 手机软键盘弹出时 visualViewport 会缩小，App.vue 把高度写进 --app-h；
+     没有该变量时退回动态视口高度，桌面端表现与 100% 一致 */
+  height: var(--app-h, 100dvh);
   max-width: 880px;
   margin: 0 auto;
   background: var(--surface);

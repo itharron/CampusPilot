@@ -1,11 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { fetchMeta } from './api/chat';
 
 const mode = ref<'mock' | 'live' | 'unknown'>('unknown');
 const model = ref('');
 
+/**
+ * 手机浏览器弹出软键盘时，布局视口（100dvh）不会跟着变，
+ * 只有 visualViewport 会缩小。把它的高度写进 CSS 变量，
+ * 让外壳高度跟随可视区域，输入框才不会被键盘盖住。
+ */
+const viewport = window.visualViewport ?? null;
+
+function syncViewportHeight() {
+  if (!viewport) return;
+  document.documentElement.style.setProperty('--app-h', `${Math.round(viewport.height)}px`);
+}
+
 onMounted(async () => {
+  syncViewportHeight();
+  viewport?.addEventListener('resize', syncViewportHeight);
+
   try {
     const meta = await fetchMeta();
     mode.value = meta.mode;
@@ -14,6 +29,8 @@ onMounted(async () => {
     // 具体错误由对话页展示，这里只保持「连接中」状态
   }
 });
+
+onBeforeUnmount(() => viewport?.removeEventListener('resize', syncViewportHeight));
 </script>
 
 <template>
