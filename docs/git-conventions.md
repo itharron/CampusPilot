@@ -15,6 +15,17 @@
 | 5 | `feat(server): 增加意图识别与办事手册检索闭环` | `data/handbook.md`、`retrieval/`、`intent.ts`、`answer.ts`、`routes/chat.ts`、`index.ts`、`runtime.ts` |
 | 6 | `docs: 补充 README 与 Git 提交规范` | `README.md`、`docs/git-conventions.md` |
 
+第二版（RAG 化）的提交顺序：
+
+| 序号 | 提交信息 | 内容 |
+| --- | --- | --- |
+| 7 | `feat(data): 语料与学校配置从代码中拆出` | `config/school.json`、`data/sample/*.md`、`knowledge/`（frontmatter / chunker / store）、移除旧的单文件语料 |
+| 8 | `feat(server): 用 BM25 与可选向量实现混合检索层` | `retrieval/`（tokenizer / bm25 / embedding / hybridRetriever）、`runtime.ts`、`intent.ts`、`.env.example` |
+| 9 | `feat: 回答附出处并支持展开原文` | `answer.ts`、`routes/chat.ts`、前端 `CitationList.vue`、`types.ts` |
+| 10 | `feat: 支持 PDF/Word 上传预览与入库` | `upload/`、`routes/kb.ts`、上传页、路由与导航、样式 |
+| 11 | `docs: 更新 RAG 架构与换学校指南` | `README.md`、`docs/git-conventions.md` |
+
+
 ## 二、提交信息格式
 
 ```
