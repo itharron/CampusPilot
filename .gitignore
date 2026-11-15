@@ -1,0 +1,23 @@
+# 依赖与构建产物
+node_modules/
+server/dist/
+web/dist/
+
+# 本地环境变量：真实密钥只放在这里，永远不进仓库
+.env
+.env.local
+.env.*.local
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# 测试覆盖率
+coverage/
