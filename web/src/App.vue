@@ -50,7 +50,11 @@ onBeforeUnmount(() => viewport?.removeEventListener('resize', syncViewportHeight
       </nav>
 
       <span class="mode" :class="mode">
-        {{ mode === 'live' ? `真实模型 · ${model}` : mode === 'mock' ? 'Mock 演示模式' : '连接中…' }}
+        <template v-if="mode === 'live'">
+          真实模型<span class="mode-model"> · {{ model }}</span>
+        </template>
+        <template v-else-if="mode === 'mock'">Mock 演示模式</template>
+        <template v-else>连接中…</template>
       </span>
     </header>
 

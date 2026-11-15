@@ -183,8 +183,10 @@ function onKeydown(event: KeyboardEvent) {
         v-model="input"
         :maxlength="maxChars"
         rows="2"
+        enterkeyhint="send"
         placeholder="用一句话描述你要办的事，Enter 发送，Shift + Enter 换行"
         :disabled="sending"
+        @focus="scrollToBottom"
         @keydown="onKeydown"
       />
       <div class="composer-actions">
