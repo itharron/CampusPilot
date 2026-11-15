@@ -2,6 +2,7 @@ export interface CachedAnswer {
   text: string;
   intentLabel: string;
   topDocTitle: string | null;
+  citations: unknown[];
   createdAt: number;
 }
 
@@ -58,6 +59,13 @@ export class AnswerCache {
       if (oldest === undefined) break;
       this.store.delete(oldest);
     }
+  }
+
+  /** 语料变更后清空缓存，避免旧答案里引用不到新入库的内容 */
+  reset(): void {
+    this.store.clear();
+    this.hitCount = 0;
+    this.missCount = 0;
   }
 
   stats(): { size: number; hits: number; misses: number } {

@@ -1,19 +1,14 @@
-/** 一条校园办事事项。字段与 handbook.md 的写法一一对应。 */
-export interface ServiceDoc {
-  id: string;
-  title: string;
-  keywords: string[];
-  department: string;
-  duration: string;
-  entry: string;
-  steps: string[];
-  materials: string[];
-  notes: string[];
-}
+import type { Chunk } from '../knowledge/types';
 
 export interface RetrievalHit {
-  doc: ServiceDoc;
+  chunk: Chunk;
+  /** 归一化后的最终得分，0-1 */
   score: number;
+  /** BM25 原始分（归一化前） */
+  lexicalScore: number;
+  /** 向量余弦相似度，未启用向量检索时为空 */
+  vectorScore?: number;
+  matchedTerms: string[];
 }
 
 export interface SearchOptions {
@@ -23,10 +18,12 @@ export interface SearchOptions {
 
 /**
  * 检索层接口。
- * 当前是关键词匹配实现；后续换成向量检索 / RAG 时，只要提供同样签名的实现，
- * 上层（意图识别、答案拼装、SSE 路由）完全不用改。
+ * 当前实现是 BM25（可选叠加向量相似度）；将来换成别的实现，
+ * 只要保持同样的签名，路由、答案拼装与前端都不用改。
  */
 export interface Retriever {
   readonly name: string;
   search(query: string, options?: SearchOptions): Promise<RetrievalHit[]>;
+  /** 语料变更后重建索引（上传入库时调用） */
+  refresh?(): void;
 }
