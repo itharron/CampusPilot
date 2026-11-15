@@ -906,10 +906,58 @@ button {
 
 @media (max-width: 640px) {
   .kb-main {
-    padding: 14px;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .kb-hero h2 {
+    font-size: 18px;
+  }
+
+  .kb-card {
+    padding: 12px 14px;
   }
 
   .kb-form {
     grid-template-columns: 1fr;
+  }
+
+  /* 与对话输入框同理：16px 避免 iOS 聚焦时整页放大 */
+  .kb-form input {
+    font-size: 16px;
+  }
+
+  .kb-picker {
+    gap: 8px;
+  }
+
+  .kb-picker input[type="file"] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .kb-picker button {
+    width: 100%;
+    min-height: 38px;
+  }
+
+  .kb-actions button {
+    flex: 1;
+    min-height: 38px;
+  }
+
+  .chunk-head {
+    padding: 9px 10px;
+  }
+
+  .chunk-text {
+    max-height: 200px;
+  }
+
+  .doc-list li {
+    row-gap: 4px;
+  }
+
+  .doc-meta {
+    overflow-wrap: anywhere;
   }
 }
