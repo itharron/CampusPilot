@@ -8,6 +8,9 @@ web/dist/
 .env.local
 .env.*.local
 
+# 运行时上传入库的语料（演示数据；如需随仓库分发可移除这一行）
+data/uploads/*.md
+
 # 日志与临时文件
 *.log
 npm-debug.log*

@@ -3,8 +3,9 @@ import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { config } from './config';
 import { getClientIp } from './http/sse';
-import { answerCache, provider, quota, retriever } from './runtime';
+import { answerCache, provider, quota, retriever, store } from './runtime';
 import { chatRouter } from './routes/chat';
+import { kbRouter } from './routes/kb';
 
 const app = express();
 app.disable('x-powered-by');
@@ -17,6 +18,7 @@ app.get('/api/health', (_req, res) => {
     mode: provider.mode,
     model: provider.model,
     retriever: retriever.name,
+    corpus: store.stats(),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
@@ -29,6 +31,7 @@ app.get('/api/meta', (req, res) => {
     mode: provider.mode,
     model: provider.model,
     retriever: retriever.name,
+    corpus: store.stats(),
     limits: {
       ratePerMinute: config.safety.rateLimit.max,
       dailyRequests: config.safety.quota.dailyRequests,
@@ -41,6 +44,7 @@ app.get('/api/meta', (req, res) => {
 });
 
 app.use('/api/chat', chatRouter);
+app.use('/api/kb', kbRouter);
 
 // 静态托管构建产物（执行过 npm run build 后，后端也能单独提供一个入口）
 const webDist = path.resolve(__dirname, '../../web/dist');
