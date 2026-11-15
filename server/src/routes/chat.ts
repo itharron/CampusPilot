@@ -1,23 +1,24 @@
 import { Router } from 'express';
-import { composeAnswer, renderContext } from '../answer';
+import { buildCitations, composeAnswer, orderHitsForAnswer, renderContext } from '../answer';
 import { config, estimateTokens } from '../config';
 import type { ChatMessage } from '../llm/provider';
 import { LLMError } from '../llm/provider';
 import { getClientIp, openSse } from '../http/sse';
-import { recognizeIntent } from '../intent';
-import { answerCache, provider, quota, rateLimiter, retriever } from '../runtime';
+import { groupHitsByDoc, recognizeIntent } from '../intent';
+import { answerCache, provider, quota, rateLimiter, retriever, store } from '../runtime';
 import { filterInput } from '../safety/inputFilter';
 
 const SYSTEM_PROMPT = [
   '你是 CampusPilot，某高校的校园办事服务台助手。',
-  '你的唯一职责是把同学描述的需求，对应到学校已收录的办事事项，并给出可执行的办理指引。',
+  '你的唯一职责是把同学描述的需求，对应到学校知识库里已收录的办事依据，并给出可执行的办理指引。',
   '',
   '规则：',
   '1. 只依据【参考资料】回答，不要编造部门名称、电话、网址、办理时限。',
   '2. 参考资料里没有的事项，就直说暂时未收录，并建议联系辅导员或人工服务台，不要硬编流程。',
   '3. 先给结论（去哪办），再给步骤，最后给材料或注意事项；总长度不超过 250 字。',
-  '4. 语气简洁、友好，像真人服务台，不使用营销腔。',
-  '5. 不回答与校园办事无关的请求，包括写代码、写作文、闲聊、情感咨询。',
+  '4. 每个关键结论后面用 [1]、[2] 这样的编号标注依据，编号必须与【参考资料】的序号一致；不要编造编号。',
+  '5. 语气简洁、友好，像真人服务台，不使用营销腔。',
+  '6. 不回答与校园办事无关的请求，包括写代码、写作文、闲聊、情感咨询。',
 ].join('\n');
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -72,6 +73,7 @@ chatRouter.post('/', async (req, res) => {
         model: provider.model,
         intent: { id: 'cached', label: cached.intentLabel, confidence: 1 },
         topDocTitle: cached.topDocTitle,
+        citations: cached.citations,
         cached: true,
         quotaRemaining: decision.snapshot.remainingRequests,
         rateRemaining: rate.remaining,
@@ -88,17 +90,26 @@ chatRouter.post('/', async (req, res) => {
       return;
     }
 
-    // 5) 检索 → 意图 → 组装上下文
-    const hits = await retriever.search(message, { topK: 3 });
+    // 5) 检索 → 引用 → 意图 → 组装上下文
+    const hits = await retriever.search(message, { topK: 4 });
+    const orderedHits = orderHitsForAnswer(hits);
     const intent = recognizeIntent(hits);
+    const citations = buildCitations(orderedHits);
+    const topDoc = groupHitsByDoc(hits)[0] ?? null;
 
     sse.send('meta', {
       mode: provider.mode,
       model: provider.model,
       intent,
-      topDocTitle: hits[0]?.doc.title ?? null,
+      topDocTitle: topDoc?.title ?? null,
+      citations,
       cached: false,
-      retrieval: { name: retriever.name, hits: hits.length },
+      retrieval: {
+        name: retriever.name,
+        hits: hits.length,
+        topScore: hits[0]?.score ?? 0,
+        matched: hits[0]?.matchedTerms ?? [],
+      },
       quotaRemaining: decision.snapshot.remainingRequests,
       rateRemaining: rate.remaining,
     });
@@ -107,12 +118,15 @@ chatRouter.post('/', async (req, res) => {
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `【参考资料】\n${renderContext(hits)}\n\n【同学的问题】\n${message}`,
+        content: `【参考资料】\n${renderContext(orderedHits)}\n\n【同学的问题】\n${message}`,
       },
     ];
 
     // 6) 流式输出（真实模型 or mock）
-    for await (const delta of provider.stream({ messages, fallbackText: composeAnswer(hits) }, controller.signal)) {
+    for await (const delta of provider.stream(
+      { messages, fallbackText: composeAnswer(orderedHits, store) },
+      controller.signal,
+    )) {
       if (controller.signal.aborted) break;
       answer += delta;
       sse.send('delta', { text: delta });
@@ -127,7 +141,8 @@ chatRouter.post('/', async (req, res) => {
       answerCache.set(message, {
         text: answer,
         intentLabel: intent.label,
-        topDocTitle: hits[0]?.doc.title ?? null,
+        topDocTitle: topDoc?.title ?? null,
+        citations,
       });
     }
 
@@ -145,14 +160,14 @@ chatRouter.post('/', async (req, res) => {
     if (!answer) {
       // 一个字都没吐出来：退回本地模板答案，保证用户仍然拿得到办理指引
       const hits = await retriever.search(message, { topK: 1 }).catch(() => []);
-      const text = `模型服务暂时不可用，先按本地办事手册给你一份指引：\n\n${composeAnswer(hits)}`;
+      const text = `模型服务暂时不可用，先按本地知识库给你一份指引：\n\n${composeAnswer(hits, store)}`;
 
       for (let index = 0; index < text.length; index += 6) {
         sse.send('delta', { text: text.slice(index, index + 6) });
         await sleep(8);
       }
 
-      sse.send('error', { code: 'LLM_UNAVAILABLE', message: '模型服务暂时不可用，以上内容来自本地手册。' });
+      sse.send('error', { code: 'LLM_UNAVAILABLE', message: '模型服务暂时不可用，以上内容来自本地知识库。' });
       sse.close();
       return;
     }
