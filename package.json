@@ -1,19 +1,16 @@
 {
   "name": "campuspilot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "CampusPilot - 校园一句话办事服务台（最小可运行版本）",
-  "workspaces": [
-    "server",
-    "web"
-  ],
+  "description": "CampusPilot - 校园一句话办事服务台（RAG 版）",
   "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix web install",
     "dev": "concurrently -n server,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
-    "dev:server": "npm run dev -w server",
-    "dev:web": "npm run dev -w web",
-    "build": "npm run build -w server && npm run build -w web",
-    "start": "npm run start -w server",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+    "dev:server": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix server run build && npm --prefix web run build",
+    "start": "npm --prefix server run start",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix web run typecheck"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
