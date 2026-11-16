@@ -1,8 +1,8 @@
 # CampusPilot · 校园「一句话办事」服务台（RAG 版）
 
-- 当前版本：**v0.2.2**
+- 当前版本：**v0.2.0**
 - 线上演示：<http://47.96.20.128:8787>（阿里云 ECS，单进程 Express 同时托管前端与 API）
-- 技术文档：[docs/CampusPilot-技术文档.pdf](docs/CampusPilot-技术文档.pdf)（PDF，26 页）
+- 技术文档：[docs/CampusPilot-技术文档-v1.5.pdf](docs/CampusPilot-技术文档-v1.5.pdf)（PDF，26 页）
 - 演示视频脚本：[docs/demo-script.md](docs/demo-script.md)
 
 ## 一、项目介绍
@@ -15,7 +15,7 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 4. **流式呈现**：回答像真人打字一样逐字出现，不用等整段生成完。
 5. **知识库可扩充**：在「知识库入库」页上传 PDF / Word，预览切分结果后确认入库，回到对话页立即可被检索命中。
 
-当前版本 **v0.2.2**，定位是「一位真实学生能用、换一所学校只改数据」的可演示作品：语料是自编示例，但按真实学生手册的体例组织（章、条、部门、时限、材料），检索、引用、上传入库全链路都是真实现。
+当前版本 **v0.2.0**，定位是「一位真实学生能用、换一所学校只改数据」的可演示作品：语料是自编示例，但按真实学生手册的体例组织（章、条、部门、时限、材料），检索、引用、上传入库全链路都是真实现。
 
 **已具备的能力**
 
@@ -29,7 +29,7 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 | 输入过滤（注入 / 越界 / 敏感信息 / 超长） | 已完成（规则实现） |
 | 数据与代码分离（`config/school.json` + `data/`） | 已完成 |
 | 按标题层级切块 + 出处元数据 | 已完成 |
-| BM25 检索 + 可选向量混合（接口预留） | 已完成 |
+| BM25 检索 + 可选向量混合（0.65 / 0.35 加权，未配置向量时纯 BM25） | 已完成 |
 | 回答带引用、前端可展开原文 | 已完成 |
 | PDF / Word 上传 → 预览切分 → 确认入库（单文件 50 MB） | 已完成 |
 | 上传入库登录授权（演示账号 `demo` / `campus2026`） | 已完成 |
@@ -84,7 +84,7 @@ event: done    → { cached, tokens }
 event: error   → { code, message }     // 已产出的内容保留
 ```
 
-`citations[]` 每项包含 `index / docId / docTitle / document / chapter / article / section / source / pages / excerpt`，前端直接用 `source` 展示出处、用 `excerpt` 展开原文。
+`citations[]` 每项包含 `index / docId / docTitle / document / chapter / article / section / source / pages / department / excerpt`，前端直接用 `source` 展示出处、用 `excerpt` 展开原文。
 
 ### 2.1 语料与切分
 
@@ -135,7 +135,7 @@ event: error   → { code, message }     // 已产出的内容保留
 ### 3.2 安装
 
 ```powershell
-cd D:\itharron\Documents\Trae-CN\temp_20261115_04\CampusPilot
+# 在项目根目录（含 package.json 的目录）执行
 npm run install:all
 ```
 
@@ -175,7 +175,7 @@ LLM_MODEL=deepseek-v4-pro                  # 必须是该服务真正支持的�
 | `CACHE_TTL_MS` | `600000` | 否 | 答案缓存有效期（毫秒），默认 10 分钟 |
 | `CACHE_MAX_ENTRIES` | `200` | 否 | 答案缓存最大条数，超出按最早写入淘汰 |
 | `EMBEDDING_MODEL` | 空 | 否 | 向量模型名；留空则只用 BM25，不会下载任何模型文件 |
-| `EMBEDDING_BASE_URL` | 空 | 否 | 向量接口根地址，需兼容 `/embeddings` |
+| `EMBEDDING_BASE_URL` | 空（回退 `LLM_BASE_URL`） | 否 | 向量接口根地址，需兼容 `/embeddings`；留空时复用 `LLM_BASE_URL` |
 | `EMBEDDING_API_KEY` | 空 | 否 | 向量接口 Key；留空则复用 `LLM_API_KEY` |
 | `CORPUS_DIR` | 空（即 `data/`） | 否 | 语料目录绝对路径，换学校或挂载外部语料时使用 |
 
@@ -357,7 +357,7 @@ origin: sample
 
 | 验证点 | 方法 | 期望结果 |
 | --- | --- | --- |
-| 健康检查 | `curl http://localhost:8787/api/health` | 返回 `{"ok":true,"mode":"mock","retriever":"bm25","corpus":{...}}` |
+| 健康检查 | `curl http://localhost:8787/api/health` | 返回 `ok=true`；未配置 Key 时 `mode=mock`，配置 Key 后为 `live`；`retriever` 默认 `bm25` |
 | 逐字流式 | 页面发「我要开在读证明」 | 回复逐字出现，结束后光标消失 |
 | 检索引用 | 发「宿舍空调坏了」 | 回答下方出现「依据来源」，可展开看到手册原文 |
 | 出处准确 | 展开第一条引用 | 形如「《示例大学学生手册（2026）》 · 第八章 学生社区与后勤 · 第五十条 · 办理步骤」 |
@@ -385,12 +385,12 @@ CampusPilot/
 ├── docs/
 │   ├── git-conventions.md        # Git 提交规范
 │   ├── tech-report.html          # 技术文档源文件（Chrome 打印生成 PDF）
-│   ├── CampusPilot-技术文档.pdf   # 技术文档（26 页）
+│   ├── CampusPilot-技术文档-v1.5.pdf   # 技术文档（26 页）
 │   └── demo-script.md            # 演示视频脚本（分镜 + 逐字口播）
 ├── server/
 │   ├── tsconfig.json
 │   └── src/
-│       ├── index.ts              # /api/health、/api/meta、/api/chat、/api/kb
+│       ├── index.ts              # /api/health、/api/meta、/api/chat、/api/kb、/api/auth
 │       ├── config.ts             # 环境变量读取
 │       ├── runtime.ts            # 单例装配（store / retriever / provider / 安全组件）
 │       ├── answer.ts             # 模板答案、引用列表、参考资料渲染
@@ -410,9 +410,11 @@ CampusPilot/
 │       │   ├── parse.ts          # PDF / docx / md / txt 抽文本与错误码
 │       │   └── drafts.ts         # 预览草稿（15 分钟 TTL）
 │       ├── routes/
+│       │   ├── auth.ts              # 演示账号登录，签发 2 小时 token
 │       │   ├── chat.ts
 │       │   └── kb.ts             # preview / confirm / docs
 │       ├── http/sse.ts
+│       ├── types/pdf-parse.d.ts    # pdf-parse 的最小类型声明
 │       ├── llm/
 │       │   ├── provider.ts
 │       │   ├── openaiProvider.ts
@@ -425,8 +427,10 @@ CampusPilot/
 └── web/
     └── src/
         ├── main.ts / App.vue / router.ts
+        ├── env.d.ts               # Vite 环境与 .vue 类型声明
         ├── pages/ChatPage.vue
         ├── pages/UploadPage.vue
+        ├── api/auth.ts            # 登录与 token 状态
         ├── api/chat.ts            # SSE 解析
         ├── api/kb.ts              # 上传 / 确认 / 列表
         ├── components/ChatMessage.vue
@@ -476,7 +480,7 @@ CampusPilot/
 | 依赖 | 版本 | 用途 |
 | --- | --- | --- |
 | vue | ^3.5.13 | 前端框架 |
-| vue-router | ^4.5.0 | 对话页 / 上传页路由 |
+| vue-router | ^4.6.5 | 对话页 / 上传页路由 |
 | vite | ^6.0.7 | 开发服务器与构建 |
 | @vitejs/plugin-vue | ^5.2.1 | SFC 编译 |
 | typescript / vue-tsc | ^5.7.3 / ^2.2.0 | 类型检查 |
