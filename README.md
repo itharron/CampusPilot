@@ -1,5 +1,10 @@
 # CampusPilot · 校园「一句话办事」服务台（RAG 版）
 
+- 当前版本：**v0.2.2**
+- 线上演示：<http://47.96.20.128:8787>（阿里云 ECS，单进程 Express 同时托管前端与 API）
+- 技术文档：[docs/CampusPilot-技术文档.pdf](docs/CampusPilot-技术文档.pdf)（PDF，26 页）
+- 演示视频脚本：[docs/demo-script.md](docs/demo-script.md)
+
 ## 一、项目介绍
 
 CampusPilot 是一个面向高校学生的「一句话办事」服务台原型。同学不需要知道事情归哪个部门管，只要用日常语言说一句"宿舍空调坏了""我要开在读证明"，系统就能：
@@ -10,7 +15,7 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 4. **流式呈现**：回答像真人打字一样逐字出现，不用等整段生成完。
 5. **知识库可扩充**：在「知识库入库」页上传 PDF / Word，预览切分结果后确认入库，回到对话页立即可被检索命中。
 
-当前版本 **v0.2**，定位是「一位真实学生能用、换一所学校只改数据」的可演示作品：语料是自编示例，但按真实学生手册的体例组织（章、条、部门、时限、材料），检索、引用、上传入库全链路都是真实现。
+当前版本 **v0.2.2**，定位是「一位真实学生能用、换一所学校只改数据」的可演示作品：语料是自编示例，但按真实学生手册的体例组织（章、条、部门、时限、材料），检索、引用、上传入库全链路都是真实现。
 
 **已具备的能力**
 
@@ -26,7 +31,10 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 | 按标题层级切块 + 出处元数据 | 已完成 |
 | BM25 检索 + 可选向量混合（接口预留） | 已完成 |
 | 回答带引用、前端可展开原文 | 已完成 |
-| PDF / Word 上传 → 预览切分 → 确认入库 | 已完成 |
+| PDF / Word 上传 → 预览切分 → 确认入库（单文件 50 MB） | 已完成 |
+| 上传入库登录授权（演示账号 `demo` / `campus2026`） | 已完成 |
+| 前端静态托管与 SPA 深链接回退（刷新 `/chat`、`/upload` 不再 404） | 已完成 |
+| 公网部署（阿里云 ECS + pm2，单端口 8787） | 已完成 |
 | 工具调用（真正下单/查进度） | 未开始 |
 
 ## 二、技术架构
@@ -113,6 +121,10 @@ event: error   → { code, message }     // 已产出的内容保留
 - 有 Key：把编号后的参考资料 + 问题发给模型，要求用 `[n]` 标注依据，按 token 流式返回；模板答案只作为出错兜底。
 - 无 Key：`MockProvider` 把模板答案按 2 字符一块吐出，流式体验一致。
 
+### 2.5 静态托管与深链接回退
+
+生产模式（`npm start`）下，Express 先 `express.static` 托管 `web/dist`，再对前端路由做回退：非 `/api` 前缀、非 `/assets/`、且路径没有扩展名的 `GET` 请求，一律返回 `web/dist/index.html`，因此直接访问或刷新 `/chat`、`/upload` 都能正常打开。缺失的静态资源（如 `/assets/missing.js`）与 `/api/*` 不存在路由仍返回 404，其中接口 404 为 JSON（`{"ok":false,"code":"NOT_FOUND"}`），不会被回退吞成页面。
+
 ## 三、运行指南
 
 ### 3.1 环境要求
@@ -146,6 +158,31 @@ LLM_MODEL=deepseek-v4-pro                  # 必须是该服务真正支持的�
 > `.env` 已被 `.gitignore` 忽略。**不要**把 Key 写进任何 `.ts` / `.vue` 文件，也不要提交 `.env`。
 > 留空 `LLM_API_KEY` 时启动日志会打印 `mock 演示模式`，页面顶部显示 Mock 徽标。
 > 如果填了 Key 但接口不可达（例如本机访问不了 `api.openai.com`），回答会自动降级为本地知识库模板，并在提示里说明「模型服务暂时不可用」。
+
+#### `.env.example` 全部变量说明
+
+| 变量 | 默认值 | 必填 | 含义 |
+| --- | --- | --- | --- |
+| `PORT` | `8787` | 否 | 后端监听端口；生产模式同时用它提供前端页面 |
+| `LLM_API_KEY` | 空 | 否 | 模型服务 Key；**留空即 mock 模式**，不会发起任何外部请求 |
+| `LLM_BASE_URL` | `https://api.openai.com/v1` | 否 | OpenAI 兼容接口根地址，需支持 `/chat/completions` |
+| `LLM_MODEL` | `gpt-4o-mini` | 否 | 模型名，必须是该 base URL 真正支持的模型，填错会 400 并回退模板 |
+| `LLM_TIMEOUT_MS` | `30000` | 否 | 单次模型请求超时（毫秒），超时回退本地模板 |
+| `RATE_LIMIT_PER_MINUTE` | `20` | 否 | 单 IP 每分钟对话请求上限，超出返回 429 |
+| `DAILY_REQUEST_LIMIT` | `60` | 否 | 单 IP 每日对话请求上限（按 UTC 日期分界） |
+| `DAILY_TOKEN_LIMIT` | `120000` | 否 | 单 IP 每日 token 额度，按 `ceil(字符数 / 2)` 估算 |
+| `INPUT_MAX_CHARS` | `500` | 否 | 单次提问最大字符数，超出直接拦截 |
+| `CACHE_TTL_MS` | `600000` | 否 | 答案缓存有效期（毫秒），默认 10 分钟 |
+| `CACHE_MAX_ENTRIES` | `200` | 否 | 答案缓存最大条数，超出按最早写入淘汰 |
+| `EMBEDDING_MODEL` | 空 | 否 | 向量模型名；留空则只用 BM25，不会下载任何模型文件 |
+| `EMBEDDING_BASE_URL` | 空 | 否 | 向量接口根地址，需兼容 `/embeddings` |
+| `EMBEDDING_API_KEY` | 空 | 否 | 向量接口 Key；留空则复用 `LLM_API_KEY` |
+| `CORPUS_DIR` | 空（即 `data/`） | 否 | 语料目录绝对路径，换学校或挂载外部语料时使用 |
+
+两个不通过环境变量配置的常量：
+
+- 知识库入库演示账号 `demo` / `campus2026`、token 有效期 2 小时：写在 `server/src/config.ts` 的 `kbAuth`，页面直接展示，仅用于演示。
+- 单文件上传上限 50 MB：写在 `server/src/upload/parse.ts` 的 `MAX_FILE_MB`，前后端共用同一个值。
 
 #### 真实模型模式（不走 mock）
 
@@ -201,12 +238,64 @@ npm run build        # server → server/dist，web → web/dist
 npm start            # 后端启动并静态托管 web/dist，访问 http://localhost:8787
 ```
 
-### 3.6 换一所学校（三种方式）
+构建后只需要启动一个进程：Express 同时提供 `/api/*` 与前端页面；刷新 `/chat`、`/upload` 由 SPA 回退处理，不依赖 Nginx 改写规则。
+
+### 3.6 线上部署（阿里云 ECS + pm2）
+
+当前演示环境：<http://47.96.20.128:8787>，代码目录 `/opt/campuspilot`，pm2 进程名 `campuspilot`，端口 8787（安全组需放行 TCP 8787）。
+
+**首次部署**
+
+```bash
+# 1) 安装运行时（Node 20 以上）
+node -v && npm -v
+
+# 2) 拉代码并安装依赖
+cd /opt
+git clone <仓库地址> campuspilot
+cd campuspilot
+npm run install:all
+
+# 3) 配置环境变量（没有 Key 可跳过，自动 mock）
+cp .env.example .env
+vi .env
+
+# 4) 构建并常驻
+npm run build
+npm i -g pm2
+pm2 start "node server/dist/index.js" --name campuspilot
+pm2 save
+pm2 startup   # 按输出提示执行一次，开机自启
+```
+
+**更新版本**
+
+```bash
+cd /opt/campuspilot
+git pull
+npm run install:all     # 依赖有变化时执行
+npm run build
+pm2 restart campuspilot
+curl -s http://127.0.0.1:8787/api/health
+```
+
+**部署后检查**
+
+| 检查项 | 命令 | 期望 |
+| --- | --- | --- |
+| 服务与模式 | `curl -s http://127.0.0.1:8787/api/health` | `ok=true`，`mode` 为 `live` 或 `mock` |
+| 首页 | `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8787/` | `200` |
+| 深链接 | `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8787/upload` | `200` |
+| 接口 404 | `curl -s http://127.0.0.1:8787/api/nonexistent` | JSON `{"ok":false,"code":"NOT_FOUND"}` |
+
+> 限流、每日额度、答案缓存与登录 token 都是进程内存储，`pm2 restart` 会清零；多实例部署前需要换成 Redis 等共享存储。
+
+### 3.7 换一所学校（三种方式）
 
 **方式一：改数据，不动代码（推荐）**
 
 1. 打开 `config/school.json`，改 `school.name / shortName / portalName / semester` 与 `departments`（部门名、入口、地点电话）。
-2. 用新学校的语料替换 `data/sample/` 下的 Markdown 文件（格式见 3.7），保留几条作为示例也可以。
+2. 用新学校的语料替换 `data/sample/` 下的 Markdown 文件（格式见 3.8），保留几条作为示例也可以。
 3. 重启后端即可。代码里没有任何学校专属的硬编码。
 
 **方式二：运行时上传入库（演示核心动作）**
@@ -217,7 +306,7 @@ npm start            # 后端启动并静态托管 web/dist，访问 http://loca
 
 把语料放到任意目录，设置环境变量 `CORPUS_DIR=D:/path/to/corpus` 后重启；不设时默认读仓库根的 `data/`。
 
-### 3.7 语料文件格式
+### 3.8 语料文件格式
 
 ```markdown
 ---
@@ -264,7 +353,7 @@ origin: sample
 
 正文用 `##` / `###` 分小节，小节标题会进入引用出处。若语料带页码，可插入 `<!-- p:12 -->` 锚点。
 
-### 3.8 验收自测清单
+### 3.9 验收自测清单
 
 | 验证点 | 方法 | 期望结果 |
 | --- | --- | --- |
@@ -281,7 +370,7 @@ origin: sample
 | 限流 | 1 分钟内连发 21 条 | 第 21 条起 429，红色提示条显示等待秒数 |
 | 每日额度 | 单 IP 当日超过 60 次 | 429，提示今日次数已用完 |
 
-### 3.9 目录结构
+### 3.10 目录结构
 
 ```
 CampusPilot/
@@ -294,7 +383,10 @@ CampusPilot/
 │   ├── sample/                   # 内置示例语料（10 条事项，手册体例）
 │   └── uploads/                  # 运行时上传入库的语料（不提交）
 ├── docs/
-│   └── git-conventions.md        # Git 提交规范
+│   ├── git-conventions.md        # Git 提交规范
+│   ├── tech-report.html          # 技术文档源文件（Chrome 打印生成 PDF）
+│   ├── CampusPilot-技术文档.pdf   # 技术文档（26 页）
+│   └── demo-script.md            # 演示视频脚本（分镜 + 逐字口播）
 ├── server/
 │   ├── tsconfig.json
 │   └── src/
@@ -352,7 +444,10 @@ CampusPilot/
 | 后端开发 | （待填写） | 模型代理、SSE、检索与知识库 |
 | 测试与文档 | （待填写） | 验收用例、README 与提交规范维护 |
 
-- 团队名称：CampusPilot 小组
+- 团队名称：（待填写）
+- 学校：（待填写）
+- 指导教师：（待填写）
+- 联系方式：（待填写）
 - 协作方式：Git 分支开发，提交信息遵循 [docs/git-conventions.md](docs/git-conventions.md)
 - 沟通渠道：（待填写）
 
@@ -387,7 +482,7 @@ CampusPilot/
 
 ## 附录 B：当前限制与下一步
 
-1. 语料是自编示例（10 条事项），可按 3.6 / 3.7 的步骤替换为真实手册；换学校不需要改代码。
+1. 语料是自编示例（10 条事项），可按 3.7 / 3.8 的步骤替换为真实手册；换学校不需要改代码。
 2. PDF 抽文本依赖文本层，扫描件不做 OCR，会明确提示。
 3. 向量检索需自行配置 `EMBEDDING_*`，默认不启用；未做重排序（rerank）。
 4. 上传语料写入 `data/uploads/`，适合单实例演示；多实例或多用户场景应改为对象存储 + 数据库。
