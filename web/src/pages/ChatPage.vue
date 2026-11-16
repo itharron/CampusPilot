@@ -4,7 +4,29 @@ import ChatMessage from '../components/ChatMessage.vue';
 import { ChatRequestError, fetchMeta, streamChat } from '../api/chat';
 import type { ChatMessageItem, ServerMeta } from '../types';
 
-const QUICK_PROMPTS = ['宿舍空调坏了', '我要开在读证明', '校园卡丢了怎么办', '缓考怎么申请', '奖学金什么时候评'];
+/** 首次进入时的引导：按「生活 / 学籍 / 场地与奖惩」分组给出可点示例 */
+const EXAMPLE_GROUPS = [
+  {
+    title: '生活报修',
+    prompts: ['宿舍空调坏了', '校园网连不上', '校园卡丢了怎么办'],
+  },
+  {
+    title: '学籍与考试',
+    prompts: ['我要开在读证明', '缓考怎么申请', '休学和复学怎么办'],
+  },
+  {
+    title: '场地与奖惩',
+    prompts: ['教室怎么借用', '奖学金什么时候评', '对处分有异议怎么办'],
+  },
+];
+
+const STEPS = [
+  { title: '选一句话开始', text: '点下面的示例，或直接在输入框里说事。' },
+  { title: '说清「什么事 + 什么情况」', text: '例如「宿舍空调坏了三天没人修」。' },
+  { title: '看部门、流程和出处', text: '回答会给出办理入口，并附手册原文。' },
+];
+
+const SCOPE = '可问：报修、校园卡、校园网、教室借用、在读证明、缓考、休学复学、请假、奖学金、处分申诉';
 
 const messages = ref<ChatMessageItem[]>([]);
 const input = ref('');
@@ -161,13 +183,39 @@ function onKeydown(event: KeyboardEvent) {
   <div class="chat-page">
     <main ref="scroller" class="chat">
       <section v-if="messages.length === 0" class="welcome">
-        <h2>把要办的事说一句话就行</h2>
-        <p>例如「宿舍空调坏了」「我要开在读证明」，我会告诉你找哪个部门、怎么走流程，并附上手册原文出处。</p>
-        <div class="quick">
-          <button v-for="prompt in QUICK_PROMPTS" :key="prompt" type="button" @click="applyQuickPrompt(prompt)">
-            {{ prompt }}
-          </button>
+        <div class="hero">
+          <span class="hero-badge">校园事务 · 一句话问清</span>
+          <h2>不用查手册，把要办的事说一句话</h2>
+          <p>
+            我会告诉你去哪个部门、带什么材料、怎么走流程，并附上学生手册的原文出处，方便你核对。
+          </p>
         </div>
+
+        <ol class="steps">
+          <li v-for="(step, index) in STEPS" :key="step.title">
+            <strong><span class="step-no">{{ index + 1 }}</span>{{ step.title }}</strong>
+            <span>{{ step.text }}</span>
+          </li>
+        </ol>
+
+        <p class="guide-title">点一个示例，直接看效果</p>
+        <div class="example-groups">
+          <section v-for="group in EXAMPLE_GROUPS" :key="group.title" class="example-group">
+            <h3>{{ group.title }}</h3>
+            <div class="quick">
+              <button
+                v-for="prompt in group.prompts"
+                :key="prompt"
+                type="button"
+                @click="applyQuickPrompt(prompt)"
+              >
+                {{ prompt }}
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <p class="scope">{{ SCOPE }}</p>
       </section>
 
       <ChatMessage v-for="item in messages" :key="item.id" :message="item" />
