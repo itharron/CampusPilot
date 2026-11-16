@@ -279,7 +279,7 @@
   <p class="kind">技 术 文 档</p>
 
   <div class="meta">
-    <div><strong>文档版本</strong>v1.8</div>
+    <div><strong>文档版本</strong>v1.9</div>
     <div><strong>对应代码</strong>v0.2.0 · 以提交时的 main 分支为准</div>
     <div><strong>团队名称</strong>想过周六</div>
     <div><strong>学校</strong>三江学院</div>
@@ -316,7 +316,7 @@
   <div class="toc-item"><span>二、需求分析</span><span>用户角色、功能需求与非功能约束</span></div>
   <div class="toc-item"><span>三、系统架构</span><span>分层、请求流水线、SSE 协议与目录结构</span></div>
   <div class="toc-item"><span>四、AI 技术方案</span><span>选型理由、集成方式、优化策略，以及意图、检索、引用、安全、双模式</span></div>
-  <div class="toc-item"><span>五、核心功能实现</span><span>对话引导、流式渲染、引用卡片、50MB 上传鉴权、移动端</span></div>
+  <div class="toc-item"><span>五、核心功能实现</span><span>对话引导、流式渲染、引用卡片、50MB 上传鉴权、移动端、亮暗主题与可访问性</span></div>
   <div class="toc-item"><span>六、测试与部署</span><span>实测数据、自测清单、构建启动、阿里云部署与已知限制</span></div>
   <div class="toc-item"><span>七、创新点</span><span>技术创新点与应用创新点分列</span></div>
   <div class="toc-item"><span>八、总结与展望</span><span>已完成能力与后续路线</span></div>
@@ -376,7 +376,7 @@
   <div>
     <h3>产品形态</h3>
     <ul>
-      <li>单页对话界面，首次进入有使用引导与 9 个示例问题。</li>
+      <li>单页对话界面，首次进入有使用引导、3 条高频示例与可展开的「更多示例」（共 9 条）。</li>
       <li>回答逐字流式出现，末尾附「依据来源」，可展开手册原文。</li>
       <li>「知识库入库」页需登录，支持 PDF / Word / Markdown / TXT 上传、切分预览与确认入库。</li>
       <li>桌面端与移动端共用一套页面，窄屏单列布局。</li>
@@ -468,17 +468,18 @@
   <tr><th style="width:10%">编号</th><th style="width:26%">需求</th><th>验收口径</th><th style="width:12%">状态</th></tr>
   <tr><td>FR-01</td><td>自然语言提问</td><td>输入一句话即可提问，无需选择部门或事项分类。</td><td>已完成</td></tr>
   <tr><td>FR-02</td><td>办事指引回答</td><td>回答包含归属部门、办理入口、步骤、材料、注意事项中的适用项。</td><td>已完成</td></tr>
-  <tr><td>FR-03</td><td>引用溯源</td><td>回答附 1–3 条依据，含文档名、章、条、小节；前端可展开原文。</td><td>已完成</td></tr>
+  <tr><td>FR-03</td><td>引用溯源</td><td>回答附 1–3 条依据，含文档名、章、条、小节；前端可展开原文，并高亮与提问重合的关键词。</td><td>已完成</td></tr>
   <tr><td>FR-04</td><td>流式输出</td><td>回答逐字出现，可中途停止；SSE 事件含 meta / delta / done / error。</td><td>已完成</td></tr>
-  <tr><td>FR-05</td><td>首次使用引导</td><td>首页说明能做什么、怎么问、可问范围，并提供 9 个可点击示例。</td><td>已完成</td></tr>
-  <tr><td>FR-06</td><td>知识库上传</td><td>支持 PDF / DOCX / MD / TXT，≤ 50 MB；预览切分后确认入库。</td><td>已完成</td></tr>
+  <tr><td>FR-05</td><td>首次使用引导</td><td>首页说明能做什么、怎么问、可问范围；首屏 3 条高频示例，展开「更多示例」后共 9 条可点击。</td><td>已完成</td></tr>
+  <tr><td>FR-06</td><td>知识库上传</td><td>支持拖拽或选择 PDF / DOCX / MD / TXT，≤ 50 MB；预览显示切分片段数，确认后提示入库成功。</td><td>已完成</td></tr>
   <tr><td>FR-07</td><td>入库鉴权</td><td>未登录不可见上传能力；演示账号可一键填入并登录。</td><td>已完成</td></tr>
   <tr><td>FR-08</td><td>输入安全</td><td>超长、提示词注入、越界请求、身份证/手机号在调用模型前拦截。</td><td>已完成（规则）</td></tr>
   <tr><td>FR-09</td><td>限流与额度</td><td>按 IP 每分钟限流；每日请求数与 token 上限；超限返回可读提示。</td><td>已完成</td></tr>
   <tr><td>FR-10</td><td>答案缓存</td><td>相同问题 10 分钟内直接回放，含引用，不重复消耗额度。</td><td>已完成</td></tr>
   <tr><td>FR-11</td><td>双模式运行</td><td>有 Key 走真实模型；无 Key 自动 mock，链路与界面一致。</td><td>已完成</td></tr>
-  <tr><td>FR-12</td><td>响应式适配</td><td>桌面与移动端均可用；窄屏不横向溢出，输入区不被软键盘遮挡。</td><td>已完成</td></tr>
+  <tr><td>FR-12</td><td>响应式适配</td><td>桌面与移动端均可用；窄屏不横向溢出，输入区不被软键盘遮挡，并适配刘海屏安全区。</td><td>已完成</td></tr>
   <tr><td>FR-13</td><td>工具调用</td><td>真正提交报修单、查询办理进度。</td><td>未开始</td></tr>
+  <tr><td>FR-14</td><td>主题与可访问性</td><td>亮/暗一键切换、默认跟随系统并记住选择；全站配色随主题；键盘焦点环与减少动效偏好可用。</td><td>已完成</td></tr>
 </table>
 
 <h2>2.3 非功能需求</h2>
@@ -962,9 +963,10 @@ HTTP/1.1 400 Bad Request
 <h2>5.1 对话页与首次使用引导</h2>
 
 <p>
-  首次进入时，消息区显示引导而不是空白页：一句主张（不用查手册，把要办的事说一句话）、三步说明
-  （选一句话开始 / 说清什么事与什么情况 / 看部门、流程和出处）、按「生活报修、学籍与考试、场地与奖惩」分组的 9 个示例，
-  以及一行可问范围。点击示例会直接填入并发送，减少评审的输入成本。
+  首次进入时，消息区显示引导而不是空白页：一句主张（不用查手册，把要办的事说一句话）、压缩成一行一条的三步说明
+  （选一句话开始 / 说清什么事 / 看部门与出处），以及 3 条高频示例。其余示例收进「更多示例」，
+  展开后仍按「生活报修、学籍与考试、场地与奖惩」给出全部 9 条。点击示例会直接填入并发送，减少评审的输入成本；
+  收起状态让手机上打开就能看到输入框。
 </p>
 
 <pre><code>生活报修：宿舍空调坏了 / 校园网连不上 / 校园卡丢了怎么办
@@ -974,12 +976,20 @@ HTTP/1.1 400 Bad Request
 <p>
   顶部导航在未登录时显示「登录」，登录后显示「知识库入库」与「退出」；右上角徽标实时显示当前模式
   （「真实模型 · deepseek-v4-pro」或「Mock 演示模式」），避免评审误判运行状态。
+  顶栏右侧另有亮/暗主题按钮，图标与当前主题一致（亮色显示太阳、暗色显示月亮）。
+</p>
+
+<p>
+  地址栏支持 <code>/?q=&lt;问题&gt;</code> 直达：打开链接后自动填入并发送，随后用 <code>router.replace</code>
+  清掉 <code>q</code> 参数，刷新页面不会重复提问；不带参数时行为与原来一致。
 </p>
 
 <h2>5.2 流式渲染与交互</h2>
 
 <ul>
   <li><strong>发送</strong>：桌面端 Enter 发送、Shift + Enter 换行；触屏或 ≤640 px 时 Enter 只换行，发送统一走按钮。</li>
+  <li><strong>检索过渡</strong>：发送后到第一个 <code>delta</code> 之前，气泡里显示带跳动圆点的「正在检索知识库…」，
+  避免空白被误认为卡住；失败与超时的提示保持原样。</li>
   <li><strong>渲染</strong>：收到 <code>meta</code> 先显示意图、检索方式、引用与剩余额度；<code>delta</code> 追加到当前气泡，光标闪烁；<code>done</code> 结束。</li>
   <li><strong>停止</strong>：发送中显示「停止」按钮，通过 <code>AbortController</code> 中断请求，服务端在 <code>close</code> 事件里停止生成。</li>
   <li><strong>错误</strong>：限流、额度、拦截分别给出不同颜色的提示条；网络异常提示检查后端，不吞错。</li>
@@ -998,6 +1008,12 @@ HTTP/1.1 400 Bad Request
     1. 在「后勤报修」中选择「空调类故障」，填写楼栋、房间号与故障现象。
     2. 上传一张故障照片（例如漏水位置、外机铭牌），便于师傅带件上门。
     ……</code></pre>
+
+<p>
+  展开的原文会按本轮提问做关键词高亮：英文与数字按单词匹配，中文按连续汉字段切 2–6 字 n-gram 并过滤常见虚词，
+  片段本身只在空格与标点处切分，因此不会把标点包进高亮。命中词用 <code>&lt;mark&gt;</code> 渲染，
+  亮暗主题下各有独立的底色与文字色。
+</p>
 
 <h2>5.4 知识库上传与登录授权</h2>
 
@@ -1026,11 +1042,14 @@ HTTP/1.1 400 Bad Request
 <h3>5.4.3 上传与入库流程</h3>
 
 <ol>
-  <li><strong>选择文件</strong>：白名单 pdf / docx / md / txt，单文件 ≤ 50 MB；前端先做一次大小检查，后端在 multer 层再次校验。</li>
+  <li><strong>选择文件</strong>：可以把文件拖到虚线区域，也可以点击选择；白名单 pdf / docx / md / txt，单文件 ≤ 50 MB；
+  前端先做一次扩展名与大小检查，后端在 multer 层再次校验。</li>
   <li><strong>预览</strong>：<code>POST /api/kb/preview</code> 抽文本（pdf-parse / mammoth / UTF-8），把「第X章 / 第X条 / 一、」短行规范为标题，
-  按 <code>##</code> / <code>###</code> 切块，返回草稿（15 分钟有效，最多 20 份）与切分预览、建议标题、文档名、章节。</li>
+  按 <code>##</code> / <code>###</code> 切块，返回草稿（15 分钟有效，最多 20 份）与切分预览、建议标题、文档名、章节；
+  页面明确显示「已切分为 N 个片段」。</li>
   <li><strong>确认</strong>：<code>POST /api/kb/confirm</code> 要求标题、文档名、章节非空，生成标准 frontmatter 写入
-  <code>data/uploads/&lt;id&gt;.md</code>，随后 <code>store.reload()</code>、重建 BM25 索引、清空答案缓存。</li>
+  <code>data/uploads/&lt;id&gt;.md</code>，随后 <code>store.reload()</code>、重建 BM25 索引、清空答案缓存；
+  成功后给出「入库成功」卡片与片段数。</li>
   <li><strong>立即检索</strong>：回到对话页提问即可命中新文档，无需重启。</li>
 </ol>
 
@@ -1055,15 +1074,46 @@ HTTP/1.1 400 Bad Request
   <tr><th style="width:26%">问题</th><th>实现</th></tr>
   <tr><td>软键盘遮挡输入区</td><td>监听 <code>window.visualViewport</code> 的 <code>resize</code>，把可视高度写入 CSS 变量 <code>--app-h</code>；
   外壳高度使用 <code>var(--app-h, 100dvh)</code>，键盘弹出时整体收缩。</td></tr>
-  <tr><td>窄屏排版</td><td>≤640 px 时单列布局，引导、示例分组、登录卡片、上传表单依次纵向排列；示例按钮可换行，不产生横向滚动。</td></tr>
+  <tr><td>窄屏排版</td><td>≤640 px 时单列布局，引导、示例分组、登录卡片、上传表单依次纵向排列；首页默认只显示 3 条高频示例，
+  展开「更多示例」后 9 条按钮可换行，不产生横向滚动。</td></tr>
   <tr><td>触屏误发送</td><td><code>matchMedia('(pointer: coarse), (max-width: 640px)')</code> 判定为移动端后，Enter 不拦截、只换行；
   <code>enterkeyhint</code> 在移动端为 <code>enter</code>，桌面端为 <code>send</code>。</td></tr>
+  <tr><td>输入框与按钮高度</td><td>移动端输入框统一 16 px 字号（避免 iOS 聚焦放大），输入区最小高度 48 px，主要按钮 40 px，
+  与上传、登录卡片保持一致。</td></tr>
+  <tr><td>安全区</td><td>顶栏与底部信息栏使用 <code>env(safe-area-inset-top / bottom)</code>，配合 <code>viewport-fit=cover</code>，
+  刘海屏与手势条不遮挡内容。</td></tr>
   <tr><td>长内容</td><td>引用原文、切分预览使用 <code>pre-wrap</code> 与 <code>word-break</code>，表格与代码块不撑破容器。</td></tr>
 </table>
 
 <p>
   已用 375×812（移动）与 1280×900（桌面）视口检查：页面无横向溢出，输入区与发送按钮可用，软键盘弹出后输入框仍在可视区域内；
   桌面端双栏引导与消息宽度不回退。
+</p>
+
+<h2>5.6 亮暗主题与可访问性</h2>
+
+<p>
+  全站配色收敛为一组 CSS 变量：<code>:root</code> 定义亮色，<code>html[data-theme='dark']</code> 覆盖为暗色。
+  页面、卡片、气泡、引用、输入框、按钮、提示条、滚动条与选中文本都引用同一组变量，因此切换主题时不会出现局部仍是旧配色。
+  暗色下按钮、气泡等填充块使用更深的强调色，文字色与背景色的对比度保持在可读范围。
+</p>
+
+<table>
+  <tr><th style="width:24%">能力</th><th>实现</th></tr>
+  <tr><td>切换入口</td><td>顶栏右侧的圆形按钮，图标与当前主题一致（亮色太阳、暗色月亮），点击即在亮/暗之间切换。</td></tr>
+  <tr><td>默认跟随系统</td><td>没有手动选择时读取 <code>prefers-color-scheme</code>，系统切换主题会实时跟随。</td></tr>
+  <tr><td>记住选择</td><td>手动切换后写入 <code>localStorage</code>（键 <code>campuspilot-theme</code>），刷新与重新打开仍生效。</td></tr>
+  <tr><td>无首屏白闪</td><td><code>index.html</code> 的 <code>&lt;head&gt;</code> 内置一段脚本，在浏览器绘制前确定 <code>data-theme</code> 与
+  <code>color-scheme</code>，并用静态样式给出与主题一致的根背景色；本地存储不可用时退回系统偏好。</td></tr>
+  <tr><td>覆盖范围</td><td>首页引导与示例、对话气泡、引用卡片与展开原文、输入区与发送按钮、顶部导航、登录卡片、知识库入库页、
+  错误与超时提示、滚动条与选中文本。</td></tr>
+  <tr><td>键盘焦点</td><td>全局 <code>:focus-visible</code> 焦点环，输入框聚焦时边框与光晕同步变化。</td></tr>
+  <tr><td>减少动效</td><td>尊重 <code>prefers-reduced-motion</code>，关闭过渡、跳动圆点与平滑滚动。</td></tr>
+</table>
+
+<p>
+  验证方式：在 headless Chrome 中分别模拟系统深色 / 浅色，检查 <code>data-theme</code>、<code>localStorage</code>、
+  根元素背景色与按钮图标状态；刷新后主题保持；在 <code>DOMContentLoaded</code> 时刻根背景已为目标色，未出现先白后暗的跳变。
 </p>
 
 <!-- ============ 六、测试与部署 ============ -->
@@ -1145,6 +1195,16 @@ HTTP/1.1 400 Bad Request
     <td>「宿舍空调不制冷了怎么报修，要准备什么材料」/「校园卡丢了怎么挂失与补办」</td>
     <td>8.91 s、148 个 delta、3 条引用 / 3.27 s、157 个 delta、3 条引用；意图置信度分别为 0.92、0.87</td>
   </tr>
+  <tr>
+    <td>主题切换与持久化</td>
+    <td>headless Chrome 模拟系统深/浅色，点击顶栏按钮并刷新</td>
+    <td>亮/暗即时生效；<code>localStorage</code> 记住选择，刷新后保持；<code>DOMContentLoaded</code> 时根背景已是目标色，无白闪</td>
+  </tr>
+  <tr>
+    <td>直达链接与引用高亮</td>
+    <td><code>/?q=宿舍空调坏了</code></td>
+    <td>自动发送该问题，地址栏变为 <code>/</code>；展开引用后「空调」被 <code>&lt;mark&gt;</code> 高亮</td>
+  </tr>
 </table>
 
 <h2>6.3 功能自测清单</h2>
@@ -1152,9 +1212,11 @@ HTTP/1.1 400 Bad Request
 <table>
   <tr><th style="width:26%">验证点</th><th style="width:36%">方法</th><th>期望</th></tr>
   <tr><td>逐字流式</td><td>发送「我要开在读证明」</td><td>回复逐字出现，结束后光标消失</td></tr>
-  <tr><td>检索引用</td><td>发送「宿舍空调坏了」</td><td>出现依据来源，可展开手册原文</td></tr>
+  <tr><td>检索引用</td><td>发送「宿舍空调坏了」</td><td>出现依据来源，可展开手册原文，重合关键词高亮</td></tr>
+  <tr><td>主题切换</td><td>点顶栏主题按钮后刷新</td><td>亮/暗即时切换；刷新保持；首屏无白闪</td></tr>
+  <tr><td>直达链接</td><td>打开 <code>/?q=宿舍空调坏了</code></td><td>自动提问，地址栏参数被清除</td></tr>
   <tr><td>出处准确</td><td>展开第一条引用</td><td>文档名 + 章 + 条 + 小节与语料一致</td></tr>
-  <tr><td>上传入库</td><td>登录后上传一份 Markdown 并确认</td><td>预览显示切块数；列表出现「上传」条目；再提问能命中</td></tr>
+  <tr><td>上传入库</td><td>登录后拖拽或选择一份 Markdown 并确认</td><td>拖动时区域高亮；预览显示片段数；显示「入库成功」；再提问能命中</td></tr>
   <tr><td>类型限制</td><td>上传 <code>.exe</code></td><td>415，提示允许的类型</td></tr>
   <tr><td>大小限制</td><td>上传 &gt; 50 MB 文件</td><td>413，提示 50 MB 上限</td></tr>
   <tr><td>扫描件</td><td>上传纯图片 PDF</td><td>422，提示需先 OCR</td></tr>
