@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "CampusPilot 后端代理层：SSE 流式转发 + 安全与成本控制 + 检索/意图层",
   "main": "dist/index.js",
