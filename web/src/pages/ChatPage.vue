@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import ChatMessage from '../components/ChatMessage.vue';
 import { ChatRequestError, fetchMeta, streamChat } from '../api/chat';
 import type { ChatMessageItem, ServerMeta } from '../types';
 
-/** 首次进入时的引导：按「生活 / 学籍 / 场地与奖惩」分组给出可点示例 */
+/**
+ * 首屏只露出 3 个高频示例（每个分组取一条），其余收进「更多示例」；
+ * 展开后仍按原来的三个分组给出全部 9 条。
+ */
+const PRIMARY_PROMPTS = ['宿舍空调坏了', '我要开在读证明', '教室怎么借用'];
+
 const EXAMPLE_GROUPS = [
   {
     title: '生活报修',
@@ -21,16 +27,20 @@ const EXAMPLE_GROUPS = [
 ];
 
 const STEPS = [
-  { title: '选一句话开始', text: '点下面的示例，或直接在输入框里说事。' },
-  { title: '说清「什么事 + 什么情况」', text: '例如「宿舍空调坏了三天没人修」。' },
-  { title: '看部门、流程和出处', text: '回答会给出办理入口，并附手册原文。' },
+  { title: '选一句话开始', text: '点示例或直接输入。' },
+  { title: '说清什么事', text: '带上具体情况更好查。' },
+  { title: '看部门与出处', text: '回答附手册原文。' },
 ];
 
 const SCOPE = '可问：报修、校园卡、校园网、教室借用、在读证明、缓考、休学复学、请假、奖学金、处分申诉';
 
+const route = useRoute();
+const router = useRouter();
+
 const messages = ref<ChatMessageItem[]>([]);
 const input = ref('');
 const sending = ref(false);
+const showAllExamples = ref(false);
 
 /**
  * 触屏设备或窄屏（与样式断点一致）上回车只换行，发送统一走按钮：
@@ -71,6 +81,14 @@ onMounted(async () => {
       text: error instanceof ChatRequestError ? error.payload.message : '无法连接后端服务，请确认已启动 server。',
     };
   }
+
+  // /?q=<问题> 直达：自动填入并发送，然后清掉查询参数，避免刷新重复提问
+  const preset = typeof route.query.q === 'string' ? route.query.q.trim() : '';
+  if (preset) {
+    await router.replace({ path: route.path });
+    input.value = preset.slice(0, maxChars.value);
+    void send();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -87,6 +105,14 @@ function scrollToBottom() {
 function applyQuickPrompt(text: string) {
   input.value = text;
   void send();
+}
+
+/** 引用高亮需要知道这一轮回答对应的问题，取该消息之前最近的一条用户消息 */
+function questionBefore(index: number): string {
+  for (let i = index - 1; i >= 0; i -= 1) {
+    if (messages.value[i].role === 'user') return messages.value[i].content;
+  }
+  return '';
 }
 
 async function send() {
@@ -219,7 +245,42 @@ function onKeydown(event: KeyboardEvent) {
         </ol>
 
         <p class="guide-title">点一个示例，直接看效果</p>
-        <div class="example-groups">
+        <div v-if="!showAllExamples" class="quick quick-primary">
+          <button
+            v-for="prompt in PRIMARY_PROMPTS"
+            :key="prompt"
+            type="button"
+            @click="applyQuickPrompt(prompt)"
+          >
+            {{ prompt }}
+          </button>
+        </div>
+
+        <div class="example-more">
+          <button
+            type="button"
+            class="more-toggle"
+            :aria-expanded="showAllExamples"
+            @click="showAllExamples = !showAllExamples"
+          >
+            {{ showAllExamples ? '收起更多示例' : '更多示例' }}
+            <svg
+              class="more-chevron"
+              :class="{ open: showAllExamples }"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m4 6 4 4 4-4" />
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="showAllExamples" class="example-groups">
           <section v-for="group in EXAMPLE_GROUPS" :key="group.title" class="example-group">
             <h3>{{ group.title }}</h3>
             <div class="quick">
@@ -238,7 +299,12 @@ function onKeydown(event: KeyboardEvent) {
         <p class="scope">{{ SCOPE }}</p>
       </section>
 
-      <ChatMessage v-for="item in messages" :key="item.id" :message="item" />
+      <ChatMessage
+        v-for="(item, index) in messages"
+        :key="item.id"
+        :message="item"
+        :question="questionBefore(index)"
+      />
     </main>
 
     <div v-if="banner" class="banner" :class="banner.type" role="status">

@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { auth, logout } from './api/auth';
 import { fetchMeta } from './api/chat';
+import { theme, toggleTheme } from './theme';
 
 const route = useRoute();
 const router = useRouter();
@@ -61,6 +62,41 @@ onBeforeUnmount(() => viewport?.removeEventListener('resize', syncViewportHeight
           <button type="button" class="nav-action" @click="handleLogout">退出</button>
         </template>
         <router-link v-else to="/upload" active-class="active">登录</router-link>
+
+        <button
+          type="button"
+          class="theme-toggle"
+          :title="theme === 'dark' ? '当前为暗色，点击切换到亮色' : '当前为亮色，点击切换到暗色'"
+          :aria-label="theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'"
+          @click="toggleTheme"
+        >
+          <!-- 图标与当前主题一致：暗色显示月亮，亮色显示太阳 -->
+          <svg
+            v-if="theme === 'dark'"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20.5 13.2A8.5 8.5 0 1 1 10.8 3.5a6.6 6.6 0 0 0 9.7 9.7Z" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="4.2" />
+            <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6" />
+          </svg>
+        </button>
       </nav>
 
       <span class="mode" :class="mode">

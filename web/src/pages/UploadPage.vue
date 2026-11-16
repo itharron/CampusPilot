@@ -23,6 +23,7 @@ const loginError = ref('');
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selected = ref<File | null>(null);
+const dragging = ref(false);
 const preview = ref<KbPreview | null>(null);
 const result = ref<KbConfirmResult | null>(null);
 const docs = ref<KbDocsResult | null>(null);
@@ -83,20 +84,52 @@ async function submitLogin() {
   }
 }
 
-function onFileChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0] ?? null;
+function selectFile(file: File | null) {
   error.value = '';
   result.value = null;
   preview.value = null;
 
-  if (file && file.size > MAX_BYTES) {
+  if (!file) {
     selected.value = null;
-    error.value = `文件 ${(file.size / 1024 / 1024).toFixed(1)} MB，超过 ${MAX_MB} MB 上限，请拆分或压缩后再上传。`;
-    input.value = '';
     return;
   }
+
+  if (!/\.(pdf|docx|md|txt)$/i.test(file.name)) {
+    selected.value = null;
+    error.value = '只支持 PDF、Word（.docx）、Markdown、TXT 文件，请换一个文件。';
+    return;
+  }
+
+  if (file.size > MAX_BYTES) {
+    selected.value = null;
+    error.value = `文件 ${(file.size / 1024 / 1024).toFixed(1)} MB，超过 ${MAX_MB} MB 上限，请拆分或压缩后再上传。`;
+    return;
+  }
+
   selected.value = file;
+}
+
+function onFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  selectFile(input.files?.[0] ?? null);
+  if (!selected.value) input.value = '';
+}
+
+function onDragOver(event: DragEvent) {
+  event.preventDefault();
+  dragging.value = true;
+}
+
+function onDragLeave(event: DragEvent) {
+  const next = event.relatedTarget as Node | null;
+  if (!next || !(event.currentTarget as HTMLElement).contains(next)) dragging.value = false;
+}
+
+function onDrop(event: DragEvent) {
+  event.preventDefault();
+  dragging.value = false;
+  selectFile(event.dataTransfer?.files?.[0] ?? null);
+  if (fileInput.value) fileInput.value.value = '';
 }
 
 async function reloadDocs() {
@@ -224,11 +257,24 @@ onMounted(() => {
 
         <section class="kb-card">
           <h3>1. 选择文件</h3>
-          <div class="kb-picker">
-            <input ref="fileInput" type="file" accept=".pdf,.docx,.md,.txt" @change="onFileChange" />
-            <button type="button" class="primary" :disabled="!selected || busy" @click="runPreview">
-              {{ busy && !preview ? '解析中…' : '上传并切分' }}
-            </button>
+          <div
+            class="kb-drop"
+            :class="{ 'is-dragging': dragging }"
+            @dragenter.prevent="dragging = true"
+            @dragover="onDragOver"
+            @dragleave="onDragLeave"
+            @drop="onDrop"
+          >
+            <p class="kb-drop-title">拖拽文件到这里，或点击选择</p>
+            <p class="kb-drop-hint">
+              支持 PDF、Word（.docx）、Markdown、TXT，单个文件不超过 {{ MAX_MB }} MB
+            </p>
+            <div class="kb-picker">
+              <input ref="fileInput" type="file" accept=".pdf,.docx,.md,.txt" @change="onFileChange" />
+              <button type="button" class="primary" :disabled="!selected || busy" @click="runPreview">
+                {{ busy && !preview ? '解析中…' : '上传并切分' }}
+              </button>
+            </div>
           </div>
           <p v-if="selected" class="kb-tip">已选择：{{ selected.name }}（{{ (selected.size / 1024).toFixed(0) }} KB）</p>
           <p class="kb-tip">扫描件 PDF 抽不出文字时会明确报错（不做 OCR）；解析失败也会给出原因，不会静默吞掉。</p>
@@ -236,9 +282,8 @@ onMounted(() => {
 
       <section v-if="preview" class="kb-card">
         <h3>2. 预览切分结果</h3>
-        <p class="kb-tip">
-          {{ preview.fileName }} · 抽取 {{ preview.chars }} 字<template v-if="preview.pages"> · {{ preview.pages }} 页</template>
-          · 切成 {{ preview.chunkCount }} 块
+        <p class="kb-tip kb-feedback">
+          已切分为 {{ preview.chunkCount }} 个片段：{{ preview.fileName }} · 抽取 {{ preview.chars }} 字<template v-if="preview.pages"> · {{ preview.pages }} 页</template>
         </p>
 
         <ul class="chunk-list">
@@ -276,7 +321,7 @@ onMounted(() => {
       </section>
 
       <section v-if="result" class="kb-card success">
-        <h3>已入库</h3>
+        <h3>入库成功</h3>
         <p>
           「{{ result.title }}」共 {{ result.chunkCount }} 个片段，出处：{{ result.source }}。
           知识库现有 {{ result.corpus.docs }} 篇文档 / {{ result.corpus.chunks }} 个片段。

@@ -6,7 +6,39 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
+    <meta name="color-scheme" content="light dark" />
     <title>CampusPilot · 校园一句话办事服务台</title>
+    <!--
+      首屏主题：在浏览器绘制前定好 data-theme，避免深色用户先看到一闪的白底。
+      逻辑与 src/theme.ts 一致（localStorage 优先，其次 prefers-color-scheme）。
+    -->
+    <style>
+      html {
+        background-color: #f5f7fb;
+      }
+      html[data-theme='dark'] {
+        background-color: #0b0f16;
+      }
+    </style>
+    <script>
+      (function () {
+        var theme;
+        try {
+          var stored = localStorage.getItem('campuspilot-theme');
+          theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+        } catch (error) {
+          theme = 'light';
+        }
+        var root = document.documentElement;
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

@@ -2,7 +2,7 @@
 import CitationList from './CitationList.vue';
 import type { ChatMessageItem } from '../types';
 
-defineProps<{ message: ChatMessageItem }>();
+defineProps<{ message: ChatMessageItem; question?: string }>();
 </script>
 
 <template>
@@ -19,14 +19,21 @@ defineProps<{ message: ChatMessageItem }>();
       </div>
 
       <div class="bubble">
-        <span v-if="!message.content && message.streaming" class="thinking">正在检索知识库…</span>
+        <span v-if="!message.content && message.streaming" class="thinking" role="status">
+          <span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          正在检索知识库…
+        </span>
         <template v-else>
           <pre class="text">{{ message.content }}</pre>
           <span v-if="message.streaming" class="caret" aria-hidden="true" />
         </template>
       </div>
 
-      <CitationList v-if="message.meta?.citations?.length" :citations="message.meta.citations" />
+      <CitationList
+        v-if="message.meta?.citations?.length"
+        :citations="message.meta.citations"
+        :question="question"
+      />
 
       <p v-if="message.error" class="msg-error">{{ message.error }}</p>
     </div>
