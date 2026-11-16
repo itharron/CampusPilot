@@ -279,8 +279,8 @@
   <p class="kind">技 术 文 档</p>
 
   <div class="meta">
-    <div><strong>文档版本</strong>v1.0</div>
-    <div><strong>对应代码</strong>v0.2.0 · commit 2382653</div>
+    <div><strong>文档版本</strong>v1.2</div>
+    <div><strong>对应代码</strong>v0.2.2 · commit c63ecaf</div>
     <div><strong>团队名称</strong>待填写</div>
     <div><strong>学校</strong>待填写</div>
     <div><strong>指导教师</strong>待填写</div>
@@ -300,9 +300,10 @@
 <table>
   <tr><th style="width:22%">项目</th><th>说明</th></tr>
   <tr><td>项目名称</td><td>CampusPilot · 校园「一句话办事」服务台（RAG 版）</td></tr>
-  <tr><td>代码版本</td><td>v0.2.0，main 分支 commit <code>2382653</code>，共 21 个提交</td></tr>
+  <tr><td>代码版本</td><td>v0.2.2，main 分支 commit <code>c63ecaf</code>，共 24 个提交</td></tr>
+  <tr><td>线上演示</td><td><code>http://47.96.20.128:8787</code>（阿里云 ECS，单进程 Express 同时托管前端与 API）</td></tr>
   <tr><td>技术栈</td><td>Vue 3 + Vite + TypeScript（前端）；Node.js + Express + TypeScript（后端）；SSE 流式传输；BM25 / 可选向量混合检索</td></tr>
-  <tr><td>语料规模</td><td>11 篇文档 / 34 个片段 / 3413 字（10 篇内置示例 + 1 篇运行上传入库）</td></tr>
+  <tr><td>语料规模</td><td>本机 11 篇 / 34 片段 / 3413 字（10 篇内置示例 + 1 篇运行上传）；线上 10 篇 / 30 片段 / 3126 字（未同步该上传文档）</td></tr>
   <tr><td>运行环境</td><td>Windows，Node v24.18.0，npm 11.16.0；浏览器 Chrome</td></tr>
   <tr><td>文档数据来源</td><td><code>server/src</code> 源码、<code>data/</code> 语料、<code>config/school.json</code>、<code>/api/health</code> 与真实对话请求的响应</td></tr>
   <tr><td>团队信息</td><td>成员、学校、指导教师均未提供，相关位置统一标注「待填写」</td></tr>
@@ -314,10 +315,10 @@
   <div class="toc-item"><span>一、项目概述</span><span>项目定位、形态与当前规模</span></div>
   <div class="toc-item"><span>二、需求分析</span><span>用户角色、功能需求与非功能约束</span></div>
   <div class="toc-item"><span>三、系统架构</span><span>分层、请求流水线、SSE 协议与目录结构</span></div>
-  <div class="toc-item"><span>四、AI 技术方案</span><span>意图识别、检索、引用、安全、限流、双模式、换校</span></div>
-  <div class="toc-item"><span>五、核心功能实现</span><span>对话引导、流式渲染、引用卡片、上传鉴权、移动端</span></div>
-  <div class="toc-item"><span>六、测试与部署</span><span>实测数据、自测清单、构建启动与已知限制</span></div>
-  <div class="toc-item"><span>七、创新点</span><span>可溯源回答、零模型检索、双模式同链路等</span></div>
+  <div class="toc-item"><span>四、AI 技术方案</span><span>选型理由、集成方式、优化策略，以及意图、检索、引用、安全、双模式</span></div>
+  <div class="toc-item"><span>五、核心功能实现</span><span>对话引导、流式渲染、引用卡片、50MB 上传鉴权、移动端</span></div>
+  <div class="toc-item"><span>六、测试与部署</span><span>实测数据、自测清单、构建启动、阿里云部署与已知限制</span></div>
+  <div class="toc-item"><span>七、创新点</span><span>技术创新点与应用创新点分列</span></div>
   <div class="toc-item"><span>八、总结与展望</span><span>已完成能力与后续路线</span></div>
   <div class="toc-item"><span>九、团队信息</span><span>全部待填写</span></div>
 </div>
@@ -590,6 +591,23 @@ Vite 开发服务器（5173） ──代理──▶ Express + TypeScript（8787
     ├── components/             # ChatMessage / CitationList
     └── api/                    # chat（SSE 解析）/ kb / auth</code></pre>
 
+<h2>3.6 静态托管与深链接回退</h2>
+
+<p>
+  生产构建后，Express 用 <code>express.static</code> 托管 <code>web/dist</code>，前后端同源，不需要额外的 Nginx 静态站点。
+  前端使用 History 路由，直接访问或刷新 <code>/upload</code>、<code>/chat</code> 这类深链接时，服务端必须回退到
+  <code>index.html</code>，否则会出现 404。当前实现把这层回退放在静态中间件之后、统一 404 之前：
+</p>
+
+<pre><code>GET /upload          → 200，返回 web/dist/index.html
+GET /assets/app.js   → 命中则返回文件；文件缺失 → 404
+GET /api/nonexistent → 404，JSON {"ok":false,"code":"NOT_FOUND"}</code></pre>
+
+<p>
+  回退只对 GET 生效，并显式排除 <code>/api</code> 前缀、<code>/assets/</code> 前缀和带扩展名的路径。
+  这样既保证深链接刷新可用，又不会把缺失的静态资源或 API 错误吞成 HTML 页面。
+</p>
+
 <!-- ============ 四、AI 技术方案 ============ -->
 <h1>四、AI 技术方案</h1>
 
@@ -598,7 +616,130 @@ Vite 开发服务器（5173） ──代理──▶ Express + TypeScript（8787
   所有参数都来自当前代码常量与环境变量默认值，实测值标注了测试时间与问题。
 </p>
 
-<h2>4.1 意图识别</h2>
+<h2>4.1 选型理由</h2>
+
+<p>
+  本项目的 AI 能力按「能离线跑、能换供应商、能解释依据、能控制成本」四条约束选型，没有为了技术栈好看而引入
+  向量数据库、模型微调或前端 UI 框架。关键决策与理由如下：
+</p>
+
+<table>
+  <tr><th style="width:16%">决策点</th><th style="width:24%">当前选择</th><th>选择理由</th><th style="width:22%">未采用</th></tr>
+  <tr>
+    <td>检索</td>
+    <td>BM25 为主，可选向量混合（0.65 / 0.35）</td>
+    <td>校园手册关键词密度高，中文「单字 + 双字」即可覆盖口语问法；当前 34 个片段用内存索引足够，评审机器无需 GPU、无需下载权重。配置 embedding 后自动升级，失败自动退回 BM25。</td>
+    <td>向量数据库、Elasticsearch：增加部署与运维依赖，对当前语料规模收益有限</td>
+  </tr>
+  <tr>
+    <td>生成模型</td>
+    <td>OpenAI 兼容 HTTP 接口</td>
+    <td>只依赖 <code>baseURL + model + apiKey</code>，换供应商不改业务代码；SSE 直接透传，前端协议稳定。</td>
+    <td>绑定单一厂商 SDK：升级与迁移成本高</td>
+  </tr>
+  <tr>
+    <td>意图识别</td>
+    <td>复用检索结果的文档聚合</td>
+    <td>没有标注数据，训练分类器成本高且冷启动不可用；用「第一名与第二名文档的分差」估置信度，语料内问题稳定在 0.87–0.99。</td>
+    <td>独立文本分类模型：需要标注集与模型产物</td>
+  </tr>
+  <tr>
+    <td>流式传输</td>
+    <td>SSE</td>
+    <td>回答是单向增量，SSE 基于普通 HTTP，代理与浏览器兼容性好，断线可由前端重试。</td>
+    <td>WebSocket：双向能力用不上，反而增加连接管理</td>
+  </tr>
+  <tr>
+    <td>无 Key 演示</td>
+    <td>与 live 同链路的 mock Provider</td>
+    <td>评审没有 Key 时仍能走通检索、引用、流式与前端交互，避免「演示环境打不开」。</td>
+    <td>仅 live：无 Key 无法验收</td>
+  </tr>
+  <tr>
+    <td>上传鉴权</td>
+    <td>内存 token + 登录限流</td>
+    <td>单实例演示规模下零外部依赖，重启即失效，逻辑简单可核对。</td>
+    <td>JWT + Redis：当前不需要多实例会话</td>
+  </tr>
+  <tr>
+    <td>文档解析</td>
+    <td>multer + pdf-parse / mammoth</td>
+    <td>同步解析、依赖轻，PDF / DOCX / MD / TXT 覆盖手册常见格式；50 MB 上限足够单份手册。</td>
+    <td>OCR、对象存储：扫描件与大规模入库不在当前范围</td>
+  </tr>
+</table>
+
+<h2>4.2 集成方式</h2>
+
+<p>
+  所有 AI 能力收敛在一条固定流水线里，路由层不直接调用模型，也不在页面里拼检索逻辑：
+</p>
+
+<pre><code>输入过滤 → 单 IP 限流 → 每日额度 → 答案缓存 → 检索（BM25/混合）
+        → 引用与意图 → 组装 Prompt → Provider.stream() → 记账/缓存 → SSE</code></pre>
+
+<ul>
+  <li><strong>接口解耦</strong>：检索侧统一 <code>Retriever.search(query, options)</code>，模型侧统一
+    <code>Provider.stream({ messages, fallbackText }, signal)</code>；mock 与 live 只是两个实现，路由代码完全相同。</li>
+  <li><strong>单例装配</strong>：<code>runtime.ts</code> 在启动时加载语料、建立索引、创建 Provider、限流器、额度与缓存，
+    路由通过导入单例使用，避免每个请求重复构建索引。</li>
+  <li><strong>引用先行</strong>：先由检索片段生成 <code>citations</code> 并通过 SSE <code>meta</code> 事件下发，再开始流式正文；
+    正文里的 <code>[n]</code> 与引用数组下标一一对应，前端不需要二次匹配。</li>
+  <li><strong>Prompt 契约</strong>：系统提示词要求「只依据参考资料、先结论后步骤、不超过 250 字、关键结论标注 [n]、不编造部门与电话」；
+    参考资料按 <code>[1]…[4]</code> 编号注入，编号与引用列表同源。</li>
+  <li><strong>失败兜底</strong>：模型不可用时，用同一批检索结果调用 <code>composeAnswer()</code> 生成模板答案，仍经 SSE 输出，
+    前端不需要切换错误页。</li>
+  <li><strong>上传入环</strong>：<code>multer</code> 接收文件 → 解析纯文本 → 按 <code>## / ###</code> 切块 → 草稿预览 →
+    确认后写入 <code>data/uploads/</code>，随后重载语料并重建检索索引，新文档立即参与问答。</li>
+</ul>
+
+<h2>4.3 优化策略</h2>
+
+<table>
+  <tr><th style="width:14%">层面</th><th style="width:34%">策略与参数</th><th>目的与实测效果</th></tr>
+  <tr>
+    <td>召回</td>
+    <td>中文单字 + 相邻双字；标题词频 ×3；topK=4；得分按本轮最高分归一化</td>
+    <td>不依赖分词词典即可命中「宿舍空调漏水」这类口语表达；标题加权让「校园卡」等短问法优先落到对应事项。</td>
+  </tr>
+  <tr>
+    <td>排序</td>
+    <td>同一文档内「办理步骤 / 流程」优先，其次材料、适用条件、注意事项</td>
+    <td>[1] 始终是最关键的流程片段，而不是恰好词频最高的小节；引用面板按步骤顺序展开。</td>
+  </tr>
+  <tr>
+    <td>混合检索</td>
+    <td>词法 0.65 + 向量 0.35；查询向量缓存 100 条；向量构建失败自动退回 BM25</td>
+    <td>配置 embedding 时提升同义改写召回；未配置或接口异常时不影响主链路，<code>/api/health</code> 会显示实际检索器。</td>
+  </tr>
+  <tr>
+    <td>生成约束</td>
+    <td>只依据参考资料；250 字以内；关键结论标注 [n]；无依据直接说未收录</td>
+    <td>降低编造部门、电话、时限的概率；回答与引用可逐条核对。</td>
+  </tr>
+  <tr>
+    <td>成本</td>
+    <td>输入 ≤500 字；20 次/分钟/IP；60 次/日、120k tokens/日；答案缓存 10 分钟 / 200 条</td>
+    <td>过滤、限流、额度、缓存都在模型调用之前；实测同一问题 9.99 秒 / 126 tokens → 684 毫秒 / 0 token。</td>
+  </tr>
+  <tr>
+    <td>可靠性</td>
+    <td>mock/live 同接口；模型中断保留已输出内容；首字未出时回退模板答案；客户端断开即 abort</td>
+    <td>演示与线上不会因模型故障出现空白页；流式连接可被用户随时取消。</td>
+  </tr>
+  <tr>
+    <td>安全</td>
+    <td>规则拦截注入 / 越界 / 身份证手机号；上传白名单与 50 MB 限制；上传 10 次/分钟；登录 10 次/分钟</td>
+    <td>命中拦截返回 400 且不消耗额度；超限上传返回 413 和明确中文提示，不会直接断开连接。</td>
+  </tr>
+  <tr>
+    <td>体验</td>
+    <td>先发 <code>meta</code> 再发正文；缓存命中仍按流式回放；前端解析 SSE 增量</td>
+    <td>公网实测首字节（meta）约 27–29 ms，用户先看到意图与引用，再看到正文逐步出现。</td>
+  </tr>
+</table>
+
+<h2>4.4 意图识别</h2>
 
 <p>
   意图识别不单独训练分类模型，而是复用检索结果：把片段按文档聚合，取最高分文档作为意图；
@@ -621,9 +762,9 @@ const confidence = Number(Math.min(0.99, Math.max(0.4, 0.55 + 0.44 * margin)).to
   路由、前端与引用逻辑都不需要改。当前实现位于 <code>server/src/intent.ts</code>。
 </p>
 
-<h2>4.2 中文检索与 BM25</h2>
+<h2>4.5 中文检索与 BM25</h2>
 
-<h3>4.2.1 切词</h3>
+<h3>4.5.1 切词</h3>
 
 <p>
   为了不引入分词词典或模型文件，中文按「单字 + 相邻双字」切分。双字覆盖「空调 / 报修 / 学籍 / 教室」这类常见词，
@@ -631,7 +772,7 @@ const confidence = Number(Math.min(0.99, Math.max(0.4, 0.55 + 0.44 * margin)).to
   汉字与英文相邻时强制断开，防止「宿舍wifi」被拼成一个词。
 </p>
 
-<h3>4.2.2 BM25 打分</h3>
+<h3>4.5.2 BM25 打分</h3>
 
 <p>每个片段建立词频表，按标准 BM25 计算：</p>
 
@@ -655,7 +796,7 @@ const specificBoost = matched.filter((term) =&gt; term.length &gt; 1).length * 0
   命中词为 <code>宿舍、舍空、空调、漏水、宿、舍</code>。两例都正确落到「宿舍空调报修」文档。
 </p>
 
-<h3>4.2.3 可选向量混合</h3>
+<h3>4.5.3 可选向量混合</h3>
 
 <p>
   默认只跑 BM25，不需要任何模型权重。配置 <code>EMBEDDING_MODEL</code> 与 <code>EMBEDDING_API_KEY</code>
@@ -669,7 +810,7 @@ const specificBoost = matched.filter((term) =&gt; term.length &gt; 1).length * 0
   便于验收时确认实际运行状态。
 </div>
 
-<h2>4.3 引用溯源</h2>
+<h2>4.6 引用溯源</h2>
 
 <p>
   引用不是回答生成后再「补来源」，而是从语料加载时就把出处写进每个片段：<code>docId / docTitle / document / chapter / article / section / source / pages / department / excerpt</code>。
@@ -707,7 +848,7 @@ mock 模式与模型失败兜底时，模板答案末尾会自动附「依据来
   与前端展开的原文一致。回答长度、编号与引用条数均可由 SSE 的 <code>meta</code> 与 <code>done</code> 事件复核。
 </p>
 
-<h2>4.4 输入安全拦截</h2>
+<h2>4.7 输入安全拦截</h2>
 
 <p>
   过滤发生在限流、额度与模型调用之前，命中即返回 400，<strong>不消耗任何额度</strong>。规则分四类：
@@ -733,7 +874,7 @@ HTTP/1.1 400 Bad Request
   规则会被误绕过，因此系统提示词里还有第二道约束（只答校园办事、不编造、不回答无关请求）。
 </p>
 
-<h2>4.5 限流、额度与缓存</h2>
+<h2>4.8 限流、额度与缓存</h2>
 
 <table>
   <tr><th style="width:30%">机制</th><th style="width:26%">参数</th><th>行为</th></tr>
@@ -743,7 +884,7 @@ HTTP/1.1 400 Bad Request
   <tr><td>答案缓存</td><td>10 分钟 / 200 条</td><td>问题归一化（去空白与标点、忽略大小写）后命中；回放含引用，<code>tokens=0</code>。</td></tr>
   <tr><td>登录限流</td><td>10 次 / 分钟 / IP</td><td>防止脚本反复试密码。</td></tr>
   <tr><td>上传限流</td><td>10 次 / 分钟 / IP</td><td>预览接口按 IP 限制；确认接口需登录后调用。</td></tr>
-  <tr><td>请求体上限</td><td>16 KB</td><td>Express JSON 解析层兜底，超大请求直接拒绝。</td></tr>
+  <tr><td>请求体上限</td><td>JSON 16 KB；上传文件 50 MB</td><td>JSON 由 Express 解析层兜底，超大请求直接拒绝；上传由 multer 内存存储从头校验字节数，超过 50 MB 返回 413 <code>FILE_TOO_LARGE</code>。</td></tr>
 </table>
 
 <p>
@@ -751,7 +892,7 @@ HTTP/1.1 400 Bad Request
   引用列表与首次一致。token 数是服务端记账口径，用于成本护栏，不等同于服务商真实计费。
 </p>
 
-<h2>4.6 mock / live 双模式</h2>
+<h2>4.9 mock / live 双模式</h2>
 
 <p>
   路由层不区分模式，始终执行「检索 → 引用 → 模板答案 → Provider.stream()」。两个实现只在最后一步不同：
@@ -784,7 +925,7 @@ HTTP/1.1 400 Bad Request
   这里对比的是「同一条链路、同一套引用与协议」，不是模型质量对比。
 </p>
 
-<h2>4.7 换一所学校的三种方式</h2>
+<h2>4.10 换一所学校的三种方式</h2>
 
 <table>
   <tr><th style="width:22%">方式</th><th>操作</th><th style="width:30%">适用场景</th></tr>
@@ -969,6 +1110,36 @@ HTTP/1.1 400 Bad Request
     <td><code>GET /api/kb/docs</code></td>
     <td>11 篇；其中 10 篇 <code>origin=sample</code>，1 篇 <code>origin=upload</code>（4 个片段）</td>
   </tr>
+  <tr>
+    <td>深链接回退</td>
+    <td><code>GET /upload</code>、<code>GET /chat</code>、<code>GET /upload?from=test</code></td>
+    <td>均返回 200 且内容为 <code>web/dist/index.html</code>，刷新页面不再 404</td>
+  </tr>
+  <tr>
+    <td>缺失静态资源</td>
+    <td><code>GET /assets/missing.js</code>、<code>GET /favicon.ico</code></td>
+    <td>返回 404，回退规则不吞掉真实缺失资源</td>
+  </tr>
+  <tr>
+    <td>接口 404 语义</td>
+    <td><code>GET /api/nonexistent</code>、<code>GET /api</code></td>
+    <td>返回 JSON <code>{"ok":false,"code":"NOT_FOUND"}</code>，不返回 HTML</td>
+  </tr>
+  <tr>
+    <td>大文件预览</td>
+    <td>登录后上传 6 MB Markdown</td>
+    <td>HTTP 200；<code>chars=2,367,665</code>、<code>chunks=1</code>，返回 <code>draftId</code></td>
+  </tr>
+  <tr>
+    <td>超限拒绝</td>
+    <td>上传 52,428,801 字节（50 MB + 1 字节）</td>
+    <td>HTTP 413；<code>code=FILE_TOO_LARGE</code>；提示「文件超过 50 MB 上限，请拆分或压缩后再上传。」；耗时 4.26 s</td>
+  </tr>
+  <tr>
+    <td>公网 UTF-8 对话</td>
+    <td>「宿舍空调不制冷了怎么报修，要准备什么材料」/「校园卡丢了怎么挂失与补办」</td>
+    <td>8.91 s、148 个 delta、3 条引用 / 3.27 s、157 个 delta、3 条引用；意图置信度分别为 0.92、0.87</td>
+  </tr>
 </table>
 
 <h2>6.3 功能自测清单</h2>
@@ -1011,7 +1182,31 @@ npm start</code></pre>
   常见失败（模型名不支持、401、地址不可达、超时）在 README 中有对照表，且都会回退到本地模板而不是白屏。
 </p>
 
-<h2>6.5 已知限制</h2>
+<h2>6.5 线上部署（阿里云 ECS + pm2）</h2>
+
+<p>
+  公网演示环境：<code>http://47.96.20.128:8787</code>。部署目录 <code>/opt/campuspilot</code>，用 pm2 常驻进程，
+  Node 进程监听 8787 端口，由 Express 同时提供 API 与 <code>web/dist</code> 静态产物，因此只需要一个端口和一个进程。
+</p>
+
+<table>
+  <tr><th style="width:22%">项</th><th>配置</th></tr>
+  <tr><td>访问地址</td><td><code>http://47.96.20.128:8787</code>（首页、<code>/chat</code>、<code>/upload</code> 均可直接访问）</td></tr>
+  <tr><td>代码目录</td><td><code>/opt/campuspilot</code></td></tr>
+  <tr><td>运行方式</td><td>pm2 托管 <code>node server/dist/index.js</code>，进程名 <code>campuspilot</code></td></tr>
+  <tr><td>端口</td><td>8787（安全组入方向放行 TCP 8787）</td></tr>
+  <tr><td>构建</td><td>服务器上执行 <code>npm run install:all</code> 与 <code>npm run build</code>，产出 <code>server/dist</code> 与 <code>web/dist</code></td></tr>
+  <tr><td>更新流程</td><td><code>git pull</code> → <code>npm run install:all</code>（依赖变化时）→ <code>npm run build</code> → <code>pm2 restart campuspilot</code></td></tr>
+  <tr><td>环境变量</td><td><code>/opt/campuspilot/.env</code> 内配置 <code>PORT</code> 与 <code>LLM_*</code>；未配置 Key 时自动以 mock 运行</td></tr>
+  <tr><td>健康检查</td><td><code>curl http://127.0.0.1:8787/api/health</code> 返回 <code>mode</code>、<code>model</code>、<code>retriever</code>、<code>corpus</code></td></tr>
+</table>
+
+<p>
+  因为静态托管与 SPA 回退都在 Express 内完成，线上不存在 Nginx 单独改写规则；访问深链接时由服务端直接返回
+  <code>web/dist/index.html</code>，前端路由再根据路径渲染对应页面。这一层在 3.6 节有实现细节。
+</p>
+
+<h2>6.6 已知限制</h2>
 
 <ol>
   <li>语料是自编示例（10 条事项 + 1 条上传），替换为真实手册前，回答只能覆盖这 11 篇文档。</li>
@@ -1022,7 +1217,7 @@ npm start</code></pre>
   <li>尚未接入真实办事系统，不能代替用户提交申请或查询进度；上传写入本地 <code>data/uploads/</code>，适合单实例演示，不适合多租户并发写入。</li>
 </ol>
 
-<h2>6.5 复现实验步骤</h2>
+<h2>6.7 复现实验步骤</h2>
 
 <p>以下命令与请求可直接复现第 6.2 节的字段（耗时与内容会随模型服务变化）：</p>
 
@@ -1055,7 +1250,14 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 <!-- ============ 七、创新点 ============ -->
 <h1>七、创新点</h1>
 
-<h2>7.1 回答与手册逐条对应，而不是「看起来像」</h2>
+<p>
+  下面按赛道要求拆成两类：技术创新点回答「工程与算法上做了什么别人没做的处理」，
+  应用创新点回答「这些处理如何改变校园场景里的实际使用方式」。每一条都能在代码或实测数据中找到对应。
+</p>
+
+<h2>7.1 技术创新点</h2>
+
+<h3>7.1.1 回答与手册逐条对应，而不是「看起来像」</h3>
 
 <p>
   多数校园问答 Demo 只保证「答得像」，CampusPilot 把出处信息前置到语料加载阶段：每个片段天然带有文档名、章、条、小节和原文，
@@ -1063,7 +1265,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
   排序上再把「办理步骤」提到同文档首位，让第一条引用就是学生最需要的流程，而不是机械按得分排列。
 </p>
 
-<h2>7.2 零模型文件的中文检索也能可用</h2>
+<h3>7.1.2 零模型文件的中文检索也能可用</h3>
 
 <p>
   不下载分词词典、不加载 embedding 权重，仅靠「单字 + 相邻双字」与标题三倍加权，就能把「宿舍空调漏水」正确落到
@@ -1071,21 +1273,23 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
   需要更强召回时，配置 embedding 即升级为混合检索，失败自动退回 BM25。
 </p>
 
-<h2>7.3 mock 与 live 共用一条链路</h2>
+<h3>7.1.3 mock 与 live 共用一条链路</h3>
 
 <p>
   mock 不是「假页面」，而是同一检索、同一引用、同一模板答案、同一 SSE 协议下的另一种输出实现。
   这让「没有 Key 的评审」和「有 Key 的验收」看到完全一致的产品行为，也让模型故障时的兜底成为自然结果，而不是额外分支。
 </p>
 
-<h2>7.4 成本护栏做在入口，而不是事后统计</h2>
+<h3>7.1.4 成本护栏做在入口，而不是事后统计</h3>
 
 <p>
   输入过滤 → 限流 → 每日额度 → 缓存 → 检索 → 模型调用是固定顺序，前四步任何一步拒绝都不会产生模型费用；
   缓存按归一化问题命中并回放引用，实测把 9.99 秒、126 tokens 的请求降为 684 毫秒、0 token。
 </p>
 
-<h2>7.5 换学校是数据操作，不是开发任务</h2>
+<h2>7.2 应用创新点</h2>
+
+<h3>7.2.1 换学校是数据操作，不是开发任务</h3>
 
 <p>
   学校名、学期、部门、入口在 <code>config/school.json</code>，事项在 <code>data/</code>，语料通过 frontmatter 的
@@ -1093,7 +1297,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
   或直接挂载新的 <code>CORPUS_DIR</code>，三种方式覆盖部署、增量和演示。
 </p>
 
-<h2>7.6 移动端按真实使用方式处理</h2>
+<h3>7.2.2 移动端按真实使用方式处理</h3>
 
 <p>
   不是把桌面布局缩小：窄屏单列、示例换行、触屏回车只换行、发送只走按钮、用 <code>visualViewport</code> 跟随软键盘收缩外壳高度。
@@ -1107,11 +1311,12 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 
 <ul>
   <li>从「一句话提问」到「带出处回答」的完整闭环：中文检索、意图识别、引用排序、流式输出、前端展开原文。</li>
-  <li>可扩展知识库：登录鉴权、PDF / Word / Markdown / TXT 上传、预览切分、确认入库、即时重建索引。</li>
+  <li>可扩展知识库：登录鉴权、PDF / Word / Markdown / TXT 上传（单文件 50 MB）、预览切分、确认入库、即时重建索引。</li>
   <li>可演示的双模式：无 Key 自动 mock，有 Key 走 OpenAI 兼容模型；失败有模板兜底。</li>
   <li>可验收的安全与成本控制：四类输入拦截、IP 限流、每日请求与 token 额度、答案缓存、上传与登录限流。</li>
   <li>可迁移的数据结构：学校配置与语料外置，三种换校方式，代码零硬编码。</li>
-  <li>桌面与移动端适配，含首次使用引导、示例入口、登录与上传界面。</li>
+  <li>桌面与移动端适配，含首次使用引导、示例入口、登录与上传界面；Express 静态托管 + SPA 深链接回退，刷新 <code>/chat</code>、<code>/upload</code> 不再 404。</li>
+  <li>可在线验收：阿里云 ECS + pm2 公网部署（<code>http://47.96.20.128:8787</code>），单端口同时提供 API 与前端产物。</li>
 </ul>
 
 <h2>8.2 展望</h2>
@@ -1158,8 +1363,8 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 </table>
 
 <p class="footer-note">
-  CampusPilot 技术文档 · v1.0 · 2026-11-16 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
-  数据与代码版本对应 main 分支 <code>2382653</code>。
+  CampusPilot 技术文档 · v1.2 · 2026-11-16 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
+  数据与代码版本对应 main 分支 <code>c63ecaf</code>。
 </p>
 
 </body>
