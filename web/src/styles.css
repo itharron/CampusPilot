@@ -547,7 +547,8 @@ button {
     gap: 6px;
   }
 
-  .nav a {
+  .nav a,
+  .nav-action {
     flex: 1;
     text-align: center;
     padding: 7px 10px;
@@ -669,16 +670,21 @@ button {
   margin-right: 10px;
 }
 
-.nav a {
+.nav a,
+.nav-action {
   padding: 5px 11px;
+  border: none;
   border-radius: 8px;
+  background: none;
+  font-family: inherit;
   font-size: 13px;
   color: var(--text-soft);
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 
-.nav a:hover {
+.nav a:hover,
+.nav-action:hover {
   background: #f2f5fa;
 }
 
@@ -1016,6 +1022,86 @@ button {
   text-decoration: none;
 }
 
+/* ---------- 知识库登录卡片 ---------- */
+.login-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.login-lead {
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 13.5px;
+}
+
+.demo-account {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px dashed #d7e0ee;
+  border-radius: 10px;
+  background: #fbfcff;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+.demo-account code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--brand-soft);
+  color: #2b56b8;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.login-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 14px;
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 160px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+.login-form input {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.login-form button {
+  flex: 0 0 auto;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13.5px;
+}
+
+.login-error {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--error);
+}
+
 @media (max-width: 640px) {
   .kb-main {
     padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
@@ -1036,6 +1122,25 @@ button {
   /* 与对话输入框同理：16px 避免 iOS 聚焦时整页放大 */
   .kb-form input {
     font-size: 16px;
+  }
+
+  /* 登录卡片同样单列，避免与上传表单窄屏表现不一致 */
+  .demo-account {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .login-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .login-form input {
+    font-size: 16px;
+  }
+
+  .login-form button {
+    min-height: 40px;
   }
 
   .kb-picker {

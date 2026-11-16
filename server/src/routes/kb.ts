@@ -5,6 +5,7 @@ import multer from 'multer';
 import { getClientIp } from '../http/sse';
 import { chunkBody, guessChapter, normalizePlainText } from '../knowledge/chunker';
 import { answerCache, retriever, store } from '../runtime';
+import { requireKbAuth } from './auth';
 import { IpRateLimiter } from '../safety/rateLimit';
 import { createDraft, getDraft, removeDraft } from '../upload/drafts';
 import { ACCEPTED_EXTENSIONS, ACCEPTED_HINT, MAX_FILE_BYTES, UploadError, extractText } from '../upload/parse';
@@ -116,8 +117,8 @@ function buildMarkdown(input: {
 
 export const kbRouter = Router();
 
-/** 上传预览：抽文本 → 规范化 → 按标题切块 → 返回草稿与建议元信息 */
-kbRouter.post('/preview', (req, res) => {
+/** 上传预览：抽文本 → 规范化 → 按标题切块 → 返回草稿与建议元信息（需登录） */
+kbRouter.post('/preview', requireKbAuth, (req, res) => {
   const rate = uploadLimiter.consume(getClientIp(req.headers['x-forwarded-for'] as string | undefined, req.socket.remoteAddress));
   if (!rate.allowed) {
     res.status(429).json({ ok: false, code: 'RATE_LIMITED', message: '上传有点频繁，请稍后再试（每分钟最多 10 次）。' });
@@ -183,8 +184,8 @@ kbRouter.post('/preview', (req, res) => {
   });
 });
 
-/** 确认入库：写入 data/uploads/，重载语料并清空答案缓存，立即可被检索命中 */
-kbRouter.post('/confirm', (req, res) => {
+/** 确认入库：写入 data/uploads/，重载语料并清空答案缓存，立即可被检索命中（需登录） */
+kbRouter.post('/confirm', requireKbAuth, (req, res) => {
   const draftId = text(req.body?.draftId, 80);
   const draft = getDraft(draftId);
 

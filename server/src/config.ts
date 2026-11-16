@@ -39,6 +39,15 @@ export const config = {
       maxEntries: readInt('CACHE_MAX_ENTRIES', 200),
     },
   },
+  /**
+   * 知识库入库的演示账号。写在代码里是刻意的：
+   * 页面会把账号直接展示给评审照抄，账号本身不承载任何真实数据权限。
+   */
+  kbAuth: {
+    username: 'demo',
+    password: 'campus2026',
+    tokenTtlMs: 2 * 60 * 60_000,
+  },
 };
 
 /** 是否配置了真实模型 Key：没有 Key 时整条链路自动降级为 mock 演示模式 */

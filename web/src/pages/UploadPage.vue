@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import { AuthError, auth, login, logout } from '../api/auth';
 import {
   KbRequestError,
   confirmDocument,
@@ -11,6 +12,13 @@ import {
 } from '../api/kb';
 
 const MAX_BYTES = 5 * 1024 * 1024;
+
+/** 与 server/src/config.ts 中的演示账号保持一致，页面直接给出便于评审照抄 */
+const DEMO_ACCOUNT = { username: 'demo', password: 'campus2026' };
+
+const loginForm = reactive({ username: '', password: '' });
+const loginBusy = ref(false);
+const loginError = ref('');
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selected = ref<File | null>(null);
@@ -35,6 +43,43 @@ const form = reactive({
 function describe(error: unknown): string {
   if (error instanceof KbRequestError) return error.message;
   return '上传失败，请确认后端服务在运行后重试。';
+}
+
+/** 会话过期时退回登录态，避免用户在上传按钮上反复失败 */
+function handleExpired(error: unknown): boolean {
+  if (error instanceof KbRequestError && error.code === 'UNAUTHORIZED') {
+    logout();
+    loginError.value = '登录已过期，请重新登录后再上传。';
+    return true;
+  }
+  return false;
+}
+
+function fillDemo() {
+  loginForm.username = DEMO_ACCOUNT.username;
+  loginForm.password = DEMO_ACCOUNT.password;
+  loginError.value = '';
+}
+
+async function submitLogin() {
+  if (loginBusy.value) return;
+
+  loginError.value = '';
+  if (!loginForm.username.trim() || !loginForm.password) {
+    loginError.value = '用户名和密码都要填写。';
+    return;
+  }
+
+  loginBusy.value = true;
+  try {
+    await login(loginForm.username.trim(), loginForm.password);
+    loginForm.password = '';
+    await reloadDocs();
+  } catch (failure) {
+    loginError.value = failure instanceof AuthError ? failure.message : '登录失败，请确认后端服务在运行。';
+  } finally {
+    loginBusy.value = false;
+  }
 }
 
 function onFileChange(event: Event) {
@@ -83,7 +128,7 @@ async function runPreview() {
     });
     expandedChunk.value = data.chunks.length ? data.chunks[0].index : null;
   } catch (uploadError) {
-    error.value = describe(uploadError);
+    if (!handleExpired(uploadError)) error.value = describe(uploadError);
   } finally {
     busy.value = false;
   }
@@ -108,42 +153,85 @@ async function confirm() {
     if (fileInput.value) fileInput.value.value = '';
     await reloadDocs();
   } catch (uploadError) {
-    error.value = describe(uploadError);
+    if (!handleExpired(uploadError)) error.value = describe(uploadError);
   } finally {
     busy.value = false;
   }
 }
 
-onMounted(reloadDocs);
+onMounted(() => {
+  if (auth.token) void reloadDocs();
+});
 </script>
 
 <template>
   <div class="kb-page">
     <main class="kb-main">
-      <section class="kb-hero">
-        <h2>知识库上传入库</h2>
-        <p>
-          支持 PDF、Word（.docx）、Markdown、TXT，单个文件不超过 5 MB。上传后先看切分结果，确认即写入
-          <code>data/uploads/</code> 并重新构建索引，回到对话页就能检索到。
+      <section v-if="!auth.token" class="kb-card login-card">
+        <h2>知识库入库需要登录</h2>
+        <p class="login-lead">
+          上传的文档会写进共享知识库、改变所有人的检索结果，所以只对已登录用户开放。对话与检索无需登录。
         </p>
-      </section>
 
-      <div v-if="error" class="banner error" role="alert">
-        <span>{{ error }}</span>
-        <button type="button" aria-label="关闭提示" @click="error = ''">×</button>
-      </div>
-
-      <section class="kb-card">
-        <h3>1. 选择文件</h3>
-        <div class="kb-picker">
-          <input ref="fileInput" type="file" accept=".pdf,.docx,.md,.txt" @change="onFileChange" />
-          <button type="button" class="primary" :disabled="!selected || busy" @click="runPreview">
-            {{ busy && !preview ? '解析中…' : '上传并切分' }}
-          </button>
+        <div class="demo-account">
+          <span>演示账号：用户名 <code>{{ DEMO_ACCOUNT.username }}</code> · 密码 <code>{{ DEMO_ACCOUNT.password }}</code></span>
+          <button type="button" class="ghost" @click="fillDemo">一键填入</button>
         </div>
-        <p v-if="selected" class="kb-tip">已选择：{{ selected.name }}（{{ (selected.size / 1024).toFixed(0) }} KB）</p>
-        <p class="kb-tip">扫描件 PDF 抽不出文字时会明确报错（不做 OCR）；解析失败也会给出原因，不会静默吞掉。</p>
+
+        <form class="login-form" @submit.prevent="submitLogin">
+          <label>
+            用户名
+            <input
+              v-model="loginForm.username"
+              maxlength="40"
+              autocomplete="username"
+              :placeholder="DEMO_ACCOUNT.username"
+            />
+          </label>
+          <label>
+            密码
+            <input
+              v-model="loginForm.password"
+              type="password"
+              maxlength="60"
+              autocomplete="current-password"
+              :placeholder="DEMO_ACCOUNT.password"
+            />
+          </label>
+          <button type="submit" class="primary" :disabled="loginBusy">
+            {{ loginBusy ? '登录中…' : '登录' }}
+          </button>
+        </form>
+
+        <p v-if="loginError" class="login-error" role="alert">{{ loginError }}</p>
+        <p class="kb-tip">登录状态保留 2 小时，退出后需要重新登录。</p>
       </section>
+
+      <template v-else>
+        <section class="kb-hero">
+          <h2>知识库上传入库</h2>
+          <p>
+            已登录为 <strong>{{ auth.username }}</strong>。支持 PDF、Word（.docx）、Markdown、TXT，单个文件不超过
+            5 MB。上传后先看切分结果，确认即写入 <code>data/uploads/</code> 并重新构建索引，回到对话页就能检索到。
+          </p>
+        </section>
+
+        <div v-if="error" class="banner error" role="alert">
+          <span>{{ error }}</span>
+          <button type="button" aria-label="关闭提示" @click="error = ''">×</button>
+        </div>
+
+        <section class="kb-card">
+          <h3>1. 选择文件</h3>
+          <div class="kb-picker">
+            <input ref="fileInput" type="file" accept=".pdf,.docx,.md,.txt" @change="onFileChange" />
+            <button type="button" class="primary" :disabled="!selected || busy" @click="runPreview">
+              {{ busy && !preview ? '解析中…' : '上传并切分' }}
+            </button>
+          </div>
+          <p v-if="selected" class="kb-tip">已选择：{{ selected.name }}（{{ (selected.size / 1024).toFixed(0) }} KB）</p>
+          <p class="kb-tip">扫描件 PDF 抽不出文字时会明确报错（不做 OCR）；解析失败也会给出原因，不会静默吞掉。</p>
+        </section>
 
       <section v-if="preview" class="kb-card">
         <h3>2. 预览切分结果</h3>
@@ -210,6 +298,7 @@ onMounted(reloadDocs);
           </li>
         </ul>
       </section>
+      </template>
     </main>
   </div>
 </template>

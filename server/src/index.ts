@@ -4,6 +4,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { config } from './config';
 import { getClientIp } from './http/sse';
 import { answerCache, provider, quota, retriever, store } from './runtime';
+import { authRouter } from './routes/auth';
 import { chatRouter } from './routes/chat';
 import { kbRouter } from './routes/kb';
 
@@ -43,6 +44,7 @@ app.get('/api/meta', (req, res) => {
   });
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/kb', kbRouter);
 

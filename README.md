@@ -104,6 +104,7 @@ event: error   → { code, message }     // 已产出的内容保留
 - `POST /api/kb/confirm`：确认标题 / 文档名 / 章节 / 条款 / 部门后，写入 `data/uploads/<id>.md`，立即 `store.reload()` + 重建索引 + 清空答案缓存，下一次提问即可命中。
 - 解析失败有明确错误码：`415 UNSUPPORTED_TYPE`、`413 FILE_TOO_LARGE`、`422 EMPTY_DOCUMENT`（扫描件抽不出文字）、`422 PARSE_FAILED`。
 - 上传接口单独限流（10 次/分钟/IP）。
+- 入库需要登录：`POST /api/auth/login` 校验演示账号后发放内存 token（2 小时有效），`/api/kb/preview`、`/api/kb/confirm` 校验 `Authorization: Bearer <token>`，未登录返回 `401 UNAUTHORIZED`。演示账号为 `demo` / `campus2026`，页面上直接展示并可一键填入；账号仅用于演示，不承载真实数据权限，进程重启后 token 全部失效。浏览知识库列表与对话检索无需登录。
 
 ### 2.4 为什么 mock 也能完整演示
 
@@ -210,7 +211,7 @@ npm start            # 后端启动并静态托管 web/dist，访问 http://loca
 
 **方式二：运行时上传入库（演示核心动作）**
 
-打开「知识库入库」页 → 选择 PDF / Word / Markdown → 「上传并切分」→ 检查切分结果 → 补全文档名与章节 → 「确认入库并立即检索」→ 回对话页提问即可命中。
+打开「知识库入库」页 → 用演示账号 `demo` / `campus2026` 登录 → 选择 PDF / Word / Markdown → 「上传并切分」→ 检查切分结果 → 补全文档名与章节 → 「确认入库并立即检索」→ 回对话页提问即可命中。
 
 **方式三：换整个语料目录**
 

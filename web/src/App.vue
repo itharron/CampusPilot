@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { auth, logout } from './api/auth';
 import { fetchMeta } from './api/chat';
+
+const route = useRoute();
+const router = useRouter();
 
 const mode = ref<'mock' | 'live' | 'unknown'>('unknown');
 const model = ref('');
+
+function handleLogout() {
+  logout();
+  if (route.path !== '/') void router.push('/');
+}
 
 /**
  * 手机浏览器弹出软键盘时，布局视口（100dvh）不会跟着变，
@@ -46,7 +56,11 @@ onBeforeUnmount(() => viewport?.removeEventListener('resize', syncViewportHeight
 
       <nav class="nav">
         <router-link to="/" exact-active-class="active">对话</router-link>
-        <router-link to="/upload" active-class="active">知识库入库</router-link>
+        <template v-if="auth.token">
+          <router-link to="/upload" active-class="active">知识库入库</router-link>
+          <button type="button" class="nav-action" @click="handleLogout">退出</button>
+        </template>
+        <router-link v-else to="/upload" active-class="active">登录</router-link>
       </nav>
 
       <span class="mode" :class="mode">

@@ -1,3 +1,5 @@
+import { authHeaders } from './auth';
+
 export interface KbChunkPreview {
   index: number;
   heading: string;
@@ -84,7 +86,7 @@ export async function previewDocument(file: File): Promise<KbPreview> {
   const form = new FormData();
   form.append('file', file);
 
-  const response = await fetch('/api/kb/preview', { method: 'POST', body: form });
+  const response = await fetch('/api/kb/preview', { method: 'POST', headers: authHeaders(), body: form });
   if (!response.ok) throw await readError(response);
   return (await response.json()) as KbPreview;
 }
@@ -92,7 +94,7 @@ export async function previewDocument(file: File): Promise<KbPreview> {
 export async function confirmDocument(payload: KbConfirmPayload): Promise<KbConfirmResult> {
   const response = await fetch('/api/kb/confirm', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw await readError(response);
