@@ -32,7 +32,9 @@
                 ? 'dark'
                 : 'light';
         } catch (error) {
-          theme = 'light';
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
         }
         var root = document.documentElement;
         root.dataset.theme = theme;
