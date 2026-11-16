@@ -279,11 +279,11 @@
   <p class="kind">技 术 文 档</p>
 
   <div class="meta">
-    <div><strong>文档版本</strong>v1.2</div>
+    <div><strong>文档版本</strong>v1.3</div>
     <div><strong>对应代码</strong>v0.2.2 · commit c63ecaf</div>
-    <div><strong>团队名称</strong>待填写</div>
-    <div><strong>学校</strong>待填写</div>
-    <div><strong>指导教师</strong>待填写</div>
+    <div><strong>团队名称</strong>想过周六</div>
+    <div><strong>学校</strong>三江学院</div>
+    <div><strong>指导教师</strong>张琳、刘进芬</div>
   </div>
 
   <p class="date">2026 年 11 月 16 日</p>
@@ -306,7 +306,7 @@
   <tr><td>语料规模</td><td>本机 11 篇 / 34 片段 / 3413 字（10 篇内置示例 + 1 篇运行上传）；线上 10 篇 / 30 片段 / 3126 字（未同步该上传文档）</td></tr>
   <tr><td>运行环境</td><td>Windows，Node v24.18.0，npm 11.16.0；浏览器 Chrome</td></tr>
   <tr><td>文档数据来源</td><td><code>server/src</code> 源码、<code>data/</code> 语料、<code>config/school.json</code>、<code>/api/health</code> 与真实对话请求的响应</td></tr>
-  <tr><td>团队信息</td><td>成员、学校、指导教师均未提供，相关位置统一标注「待填写」</td></tr>
+  <tr><td>团队信息</td><td>想过周六 · 三江学院 · 指导教师张琳、刘进芬；成员徐子润、韩海荣（详见第九章）</td></tr>
 </table>
 
 <h2>目录</h2>
@@ -1335,18 +1335,38 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 <h1>九、团队信息</h1>
 
 <div class="warn">
-  以下信息尚未提供，按赛道材料要求统一留空为「待填写」，未做任何虚构。
+  团队名称、学校、指导教师与成员分工由团队提供；联系方式按大赛要求填写为「见大赛报名系统」，不在公开材料中写入手机号。
 </div>
 
 <table>
-  <tr><th style="width:26%">项目</th><th>内容</th></tr>
-  <tr><td>团队名称</td><td>待填写</td></tr>
-  <tr><td>学校</td><td>待填写</td></tr>
-  <tr><td>指导教师</td><td>待填写</td></tr>
-  <tr><td>团队成员 1</td><td>待填写（姓名 / 年级专业 / 分工）</td></tr>
-  <tr><td>团队成员 2</td><td>待填写（姓名 / 年级专业 / 分工）</td></tr>
-  <tr><td>团队成员 3</td><td>待填写（姓名 / 年级专业 / 分工）</td></tr>
-  <tr><td>联系方式</td><td>待填写</td></tr>
+  <tr><th style="width:24%">项目</th><th>内容</th></tr>
+  <tr><td>团队名称</td><td>想过周六</td></tr>
+  <tr><td>学校</td><td>三江学院</td></tr>
+  <tr><td>指导教师</td><td>张琳、刘进芬（两位并列）</td></tr>
+  <tr><td>联系方式</td><td>见大赛报名系统</td></tr>
+</table>
+
+<h2>成员与分工</h2>
+
+<table>
+  <tr>
+    <th style="width:12%">姓名</th>
+    <th style="width:20%">年级专业</th>
+    <th style="width:16%">角色</th>
+    <th>负责内容</th>
+  </tr>
+  <tr>
+    <td>徐子润</td>
+    <td>2026 级 网络工程</td>
+    <td>队长 / 前端与呈现</td>
+    <td>首页引导与示例问题、对话与引用卡片交互、移动端适配、上传页界面、语料整理（10 条事项的字段设计与文案）、测试用例执行、演示视频录制与剪辑</td>
+  </tr>
+  <tr>
+    <td>韩海荣</td>
+    <td>2026 级 网络空间安全</td>
+    <td>后端与 AI</td>
+    <td>系统架构设计、意图识别与 BM25 检索、引用溯源、输入安全拦截与限流、登录鉴权、ECS 部署与运维、技术文档撰写</td>
+  </tr>
 </table>
 
 <h2>附：复现与核对入口</h2>
@@ -1363,7 +1383,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 </table>
 
 <p class="footer-note">
-  CampusPilot 技术文档 · v1.2 · 2026-11-16 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
+  CampusPilot 技术文档 · v1.3 · 2026-11-16 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
   数据与代码版本对应 main 分支 <code>c63ecaf</code>。
 </p>
 
