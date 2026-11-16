@@ -31,6 +31,19 @@ const SCOPE = '可问：报修、校园卡、校园网、教室借用、在读�
 const messages = ref<ChatMessageItem[]>([]);
 const input = ref('');
 const sending = ref(false);
+
+/**
+ * 触屏设备或窄屏（与样式断点一致）上回车只换行，发送统一走按钮：
+ * 软键盘的回车很容易误触，而且用户往往只是想分段。
+ * 桌面端保持回车发送、Shift + Enter 换行的既有约定。
+ */
+const mobileQuery =
+  typeof window === 'undefined' ? null : window.matchMedia('(pointer: coarse), (max-width: 640px)');
+const isMobile = ref(mobileQuery?.matches ?? false);
+
+function syncMobile() {
+  isMobile.value = mobileQuery?.matches ?? false;
+}
 const serverMeta = ref<ServerMeta | null>(null);
 const quotaRemaining = ref<number | null>(null);
 const rateRemaining = ref<number | null>(null);
@@ -45,6 +58,9 @@ const maxChars = computed(() => serverMeta.value?.limits.inputMaxChars ?? 500);
 const canSend = computed(() => input.value.trim().length > 0 && !sending.value);
 
 onMounted(async () => {
+  syncMobile();
+  mobileQuery?.addEventListener('change', syncMobile);
+
   try {
     const meta = await fetchMeta();
     serverMeta.value = meta;
@@ -57,7 +73,10 @@ onMounted(async () => {
   }
 });
 
-onBeforeUnmount(() => controller.value?.abort());
+onBeforeUnmount(() => {
+  mobileQuery?.removeEventListener('change', syncMobile);
+  controller.value?.abort();
+});
 
 function scrollToBottom() {
   nextTick(() => {
@@ -172,10 +191,11 @@ async function send() {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    void send();
-  }
+  if (event.key !== 'Enter' || event.shiftKey) return;
+  // 移动端：交给浏览器插入换行，不拦截、不发送
+  if (isMobile.value) return;
+  event.preventDefault();
+  void send();
 }
 </script>
 
@@ -231,8 +251,12 @@ function onKeydown(event: KeyboardEvent) {
         v-model="input"
         :maxlength="maxChars"
         rows="2"
-        enterkeyhint="send"
-        placeholder="用一句话描述你要办的事，Enter 发送，Shift + Enter 换行"
+        :enterkeyhint="isMobile ? 'enter' : 'send'"
+        :placeholder="
+          isMobile
+            ? '描述你要办的事，回车换行，点「发送」提交'
+            : '用一句话描述你要办的事，Enter 发送，Shift + Enter 换行'
+        "
         :disabled="sending"
         @focus="scrollToBottom"
         @keydown="onKeydown"
