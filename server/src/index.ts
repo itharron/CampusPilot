@@ -54,9 +54,21 @@ if (fs.existsSync(webDist)) {
   app.use(express.static(webDist));
 }
 
+// 前端路由回退：刷新 /upload、/chat 等深链接时返回 index.html。
+// 带扩展名的路径（如缺失的 /assets/xxx.js）和 /api/* 不回退，保持 404，避免把错误吞成页面。
+app.get('*', (req, res, next) => {
+  if (req.path === '/api' || req.path.startsWith('/api/')) return next();
+  if (req.path.startsWith('/assets/') || path.extname(req.path)) return next();
+
+  const indexHtml = path.join(webDist, 'index.html');
+  if (!fs.existsSync(indexHtml)) return next();
+
+  res.sendFile(indexHtml);
+});
+
 // 统一兜底：JSON 解析失败、路由不存在等，都返回前端能直接展示的友好结构
 app.use((req: Request, res: Response) => {
-  if (req.path.startsWith('/api/')) {
+  if (req.path === '/api' || req.path.startsWith('/api/')) {
     res.status(404).json({ ok: false, code: 'NOT_FOUND', message: '接口不存在。' });
     return;
   }
