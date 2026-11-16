@@ -216,6 +216,21 @@ LLM_MODEL=deepseek-v4-pro                  # 必须是该服务真正支持的�
 
 > 真实模式下每次提问都会消耗服务商额度；本项目自带 20 次/分钟限流与每日 60 次 / 12 万 token 额度护栏，排查配置时优先用 `/models` 与 `/api/health` 这类零成本接口。
 
+#### 线上实际配置示例（以 DeepSeek 为例）
+
+线上（阿里云 ECS）用的就是服务器仓库根目录下的一份 `.env`，形如：
+
+```dotenv
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-pro
+LLM_API_KEY=<填入你自己的 Key>
+PORT=8787
+```
+
+- `LLM_API_KEY` 不要提交进仓库：`.env` 已被 `.gitignore` 忽略，本地和线上各自填写；线上直接写在服务器的 `.env` 里，改完执行 `pm2 restart campuspilot` 生效。
+- `LLM_MODEL` 必须是该服务商真实支持的模型名，填错会在提问时返回 `400`（错误体列出 supported model names），链路随即回退到本地模板；不确定时先查 `https://api.deepseek.com/models` 的 `data[].id`。
+- 没有 Key 时把 `LLM_API_KEY` 留空即为 mock 模式，不发起任何外部请求，功能仍可完整演示。
+
 ### 3.4 启动
 
 ```powershell
