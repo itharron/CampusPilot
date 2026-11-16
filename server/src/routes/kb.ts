@@ -8,7 +8,7 @@ import { answerCache, retriever, store } from '../runtime';
 import { requireKbAuth } from './auth';
 import { IpRateLimiter } from '../safety/rateLimit';
 import { createDraft, getDraft, removeDraft } from '../upload/drafts';
-import { ACCEPTED_EXTENSIONS, ACCEPTED_HINT, MAX_FILE_BYTES, UploadError, extractText } from '../upload/parse';
+import { ACCEPTED_EXTENSIONS, ACCEPTED_HINT, MAX_FILE_BYTES, MAX_FILE_MB, UploadError, extractText } from '../upload/parse';
 
 const UPLOAD_DIR = path.resolve(__dirname, '../../../data/uploads');
 const uploadLimiter = new IpRateLimiter({ windowMs: 60_000, max: 10 });
@@ -44,7 +44,7 @@ function sendError(res: Response, error: unknown): void {
     res.status(tooLarge ? 413 : 400).json({
       ok: false,
       code: tooLarge ? 'FILE_TOO_LARGE' : 'UPLOAD_FAILED',
-      message: tooLarge ? '文件超过 5 MB 上限，请拆分或压缩后再上传。' : `上传失败：${error.message}`,
+      message: tooLarge ? `文件超过 ${MAX_FILE_MB} MB 上限，请拆分或压缩后再上传。` : `上传失败：${error.message}`,
     });
     return;
   }

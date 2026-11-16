@@ -11,7 +11,8 @@ import {
   type KbPreview,
 } from '../api/kb';
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_MB = 50;
+const MAX_BYTES = MAX_MB * 1024 * 1024;
 
 /** 与 server/src/config.ts 中的演示账号保持一致，页面直接给出便于评审照抄 */
 const DEMO_ACCOUNT = { username: 'demo', password: 'campus2026' };
@@ -91,7 +92,7 @@ function onFileChange(event: Event) {
 
   if (file && file.size > MAX_BYTES) {
     selected.value = null;
-    error.value = `文件 ${(file.size / 1024 / 1024).toFixed(1)} MB，超过 5 MB 上限，请拆分或压缩后再上传。`;
+    error.value = `文件 ${(file.size / 1024 / 1024).toFixed(1)} MB，超过 ${MAX_MB} MB 上限，请拆分或压缩后再上传。`;
     input.value = '';
     return;
   }
@@ -212,7 +213,7 @@ onMounted(() => {
           <h2>知识库上传入库</h2>
           <p>
             已登录为 <strong>{{ auth.username }}</strong>。支持 PDF、Word（.docx）、Markdown、TXT，单个文件不超过
-            5 MB。上传后先看切分结果，确认即写入 <code>data/uploads/</code> 并重新构建索引，回到对话页就能检索到。
+            {{ MAX_MB }} MB。上传后先看切分结果，确认即写入 <code>data/uploads/</code> 并重新构建索引，回到对话页就能检索到。
           </p>
         </section>
 

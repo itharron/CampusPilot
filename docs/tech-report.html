@@ -470,7 +470,7 @@
   <tr><td>FR-03</td><td>引用溯源</td><td>回答附 1–3 条依据，含文档名、章、条、小节；前端可展开原文。</td><td>已完成</td></tr>
   <tr><td>FR-04</td><td>流式输出</td><td>回答逐字出现，可中途停止；SSE 事件含 meta / delta / done / error。</td><td>已完成</td></tr>
   <tr><td>FR-05</td><td>首次使用引导</td><td>首页说明能做什么、怎么问、可问范围，并提供 9 个可点击示例。</td><td>已完成</td></tr>
-  <tr><td>FR-06</td><td>知识库上传</td><td>支持 PDF / DOCX / MD / TXT，≤ 5 MB；预览切分后确认入库。</td><td>已完成</td></tr>
+  <tr><td>FR-06</td><td>知识库上传</td><td>支持 PDF / DOCX / MD / TXT，≤ 50 MB；预览切分后确认入库。</td><td>已完成</td></tr>
   <tr><td>FR-07</td><td>入库鉴权</td><td>未登录不可见上传能力；演示账号可一键填入并登录。</td><td>已完成</td></tr>
   <tr><td>FR-08</td><td>输入安全</td><td>超长、提示词注入、越界请求、身份证/手机号在调用模型前拦截。</td><td>已完成（规则）</td></tr>
   <tr><td>FR-09</td><td>限流与额度</td><td>按 IP 每分钟限流；每日请求数与 token 上限；超限返回可读提示。</td><td>已完成</td></tr>
@@ -880,7 +880,7 @@ HTTP/1.1 400 Bad Request
 <h3>5.4.3 上传与入库流程</h3>
 
 <ol>
-  <li><strong>选择文件</strong>：白名单 pdf / docx / md / txt，单文件 ≤ 5 MB；前端先做一次大小检查，后端在 multer 层再次校验。</li>
+  <li><strong>选择文件</strong>：白名单 pdf / docx / md / txt，单文件 ≤ 50 MB；前端先做一次大小检查，后端在 multer 层再次校验。</li>
   <li><strong>预览</strong>：<code>POST /api/kb/preview</code> 抽文本（pdf-parse / mammoth / UTF-8），把「第X章 / 第X条 / 一、」短行规范为标题，
   按 <code>##</code> / <code>###</code> 切块，返回草稿（15 分钟有效，最多 20 份）与切分预览、建议标题、文档名、章节。</li>
   <li><strong>确认</strong>：<code>POST /api/kb/confirm</code> 要求标题、文档名、章节非空，生成标准 frontmatter 写入
@@ -891,7 +891,7 @@ HTTP/1.1 400 Bad Request
 <table>
   <tr><th style="width:30%">异常</th><th style="width:16%">状态码</th><th>提示</th></tr>
   <tr><td>不支持的扩展名</td><td>415</td><td>提示允许的四种类型</td></tr>
-  <tr><td>超过 5 MB</td><td>413</td><td>提示拆分或压缩</td></tr>
+  <tr><td>超过 50 MB</td><td>413</td><td>提示拆分或压缩</td></tr>
   <tr><td>扫描件抽不出文字</td><td>422</td><td>提示先做 OCR，不静默失败</td></tr>
   <tr><td>解析异常</td><td>422</td><td>返回截断后的具体原因</td></tr>
   <tr><td>预览过期</td><td>410</td><td>提示重新上传</td></tr>
@@ -980,7 +980,7 @@ HTTP/1.1 400 Bad Request
   <tr><td>出处准确</td><td>展开第一条引用</td><td>文档名 + 章 + 条 + 小节与语料一致</td></tr>
   <tr><td>上传入库</td><td>登录后上传一份 Markdown 并确认</td><td>预览显示切块数；列表出现「上传」条目；再提问能命中</td></tr>
   <tr><td>类型限制</td><td>上传 <code>.exe</code></td><td>415，提示允许的类型</td></tr>
-  <tr><td>大小限制</td><td>上传 &gt; 5 MB 文件</td><td>413，提示 5 MB 上限</td></tr>
+  <tr><td>大小限制</td><td>上传 &gt; 50 MB 文件</td><td>413，提示 50 MB 上限</td></tr>
   <tr><td>扫描件</td><td>上传纯图片 PDF</td><td>422，提示需先 OCR</td></tr>
   <tr><td>未登录上传</td><td>直接请求 <code>POST /api/kb/preview</code></td><td>401 <code>UNAUTHORIZED</code></td></tr>
   <tr><td>演示账号</td><td>点击「一键填入」后登录</td><td>登录成功，显示「已登录为 demo」</td></tr>

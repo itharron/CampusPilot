@@ -2,7 +2,8 @@ import path from 'node:path';
 import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
 
-export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_FILE_MB = 50;
+export const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 export const ACCEPTED_EXTENSIONS = ['pdf', 'docx', 'md', 'txt'];
 export const ACCEPTED_HINT = 'PDF、Word（.docx）、Markdown（.md）或 TXT';
 
@@ -35,12 +36,12 @@ export async function extractText(file: { buffer: Buffer; originalname: string; 
   if (!ACCEPTED_EXTENSIONS.includes(ext)) {
     throw new UploadError(
       'UNSUPPORTED_TYPE',
-      `不支持的文件类型：.${ext || '未知'}。允许上传 ${ACCEPTED_HINT}，单个文件不超过 5 MB。`,
+      `不支持的文件类型：.${ext || '未知'}。允许上传 ${ACCEPTED_HINT}，单个文件不超过 ${MAX_FILE_MB} MB。`,
     );
   }
 
   if (file.size > MAX_FILE_BYTES) {
-    throw new UploadError('FILE_TOO_LARGE', '文件超过 5 MB 上限，请拆分或压缩后再上传。');
+    throw new UploadError('FILE_TOO_LARGE', `文件超过 ${MAX_FILE_MB} MB 上限，请拆分或压缩后再上传。`);
   }
 
   try {
