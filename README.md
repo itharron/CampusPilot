@@ -123,7 +123,7 @@ event: error   → { code, message }     // 已产出的内容保留
 
 ### 2.5 静态托管与深链接回退
 
-生产模式（`npm start`）下，Express 先 `express.static` 托管 `web/dist`，再对前端路由做回退：非 `/api` 前缀、非 `/assets/`、且路径没有扩展名的 `GET` 请求，一律返回 `web/dist/index.html`，因此直接访问或刷新 `/chat`、`/upload` 都能正常打开。缺失的静态资源（如 `/assets/missing.js`）与 `/api/*` 不存在路由仍返回 404，其中接口 404 为 JSON（`{"ok":false,"code":"NOT_FOUND"}`），不会被回退吞成页面。
+生产模式（`npm start`）下，Express 先 `express.static` 托管 `web/dist`，再对前端路由做回退：非 `/api` 前缀、非 `/assets/`、且路径没有扩展名的 `GET` 请求，一律返回 `web/dist/index.html`，因此直接访问或刷新 `/chat`、`/upload` 都能正常打开。其中 `/chat` 是首页对话页的路由别名，渲染同一个对话界面，顶部导航仍指向 `/`。缺失的静态资源（如 `/assets/missing.js`）与 `/api/*` 不存在路由仍返回 404，其中接口 404 为 JSON（`{"ok":false,"code":"NOT_FOUND"}`），不会被回退吞成页面。
 
 ## 三、运行指南
 
