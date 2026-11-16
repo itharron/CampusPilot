@@ -4,7 +4,7 @@
 
 ## 一、提交粒度
 
-每个提交只做一件可描述清楚的事，且让仓库在该提交后仍处于"能讲通"的状态。本次第一版的提交顺序：
+每个提交只做一件可描述清楚的事，且让仓库在该提交后仍处于"能讲通"的状态。以下仅是第一版与第二版的**分阶段提交示例**，不代表仓库的完整提交序列：
 
 | 序号 | 提交信息 | 内容 |
 | --- | --- | --- |
@@ -15,7 +15,7 @@
 | 5 | `feat(server): 增加意图识别与办事手册检索闭环` | `data/handbook.md`、`retrieval/`、`intent.ts`、`answer.ts`、`routes/chat.ts`、`index.ts`、`runtime.ts` |
 | 6 | `docs: 补充 README 与 Git 提交规范` | `README.md`、`docs/git-conventions.md` |
 
-第二版（RAG 化）的提交顺序：
+第二版（RAG 化）示例：
 
 | 序号 | 提交信息 | 内容 |
 | --- | --- | --- |
@@ -24,6 +24,8 @@
 | 9 | `feat: 回答附出处并支持展开原文` | `answer.ts`、`routes/chat.ts`、前端 `CitationList.vue`、`types.ts` |
 | 10 | `feat: 支持 PDF/Word 上传预览与入库` | `upload/`、`routes/kb.ts`、上传页、路由与导航、样式 |
 | 11 | `docs: 更新 RAG 架构与换学校指南` | `README.md`、`docs/git-conventions.md` |
+
+后续提交（上传上限调整、登录鉴权、SPA 深链接回退、文档修订等）按同一约定执行：一改一分支、`git merge --ff-only` 快进合并、及时推送，不再在此逐条罗列。
 
 
 ## 二、提交信息格式
