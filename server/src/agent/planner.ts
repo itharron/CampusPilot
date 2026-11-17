@@ -43,7 +43,6 @@ export interface RouteDecision {
 }
 
 const MIN_EVIDENCE = 0.5;
-const CONTACT_EVIDENCE = 0.75;
 
 /** 明确不属于校园办事范围的问题 */
 const OUT_OF_SCOPE: RegExp[] = [
@@ -55,24 +54,35 @@ const OUT_OF_SCOPE: RegExp[] = [
   /(讲个笑话|笑话|唱歌|写诗)/,
 ];
 
-/** 找人工 / 找窗口的诉求 */
+/**
+ * 找人工 / 找窗口的诉求。这类问题优先于关键词覆盖率：
+ * 手册提到某个角色，不代表手册里有这个人的联系方式或办公地点。
+ */
 const CONTACT_REQUEST =
-  /(电话|联系方式|怎么联系|人工|窗口|地址|在哪|找谁|辅导员|老师办公室|服务台|几点上班|办公时间)/;
+  /(电话|联系方式|怎么联系|人工|窗口|地址|在哪|找谁|投诉|辅导员|宿管|宿舍管理员|保卫处|保卫科|教务老师|老师办公室|服务台|几点上班|办公时间|找(?:人|老师|教务|保卫|部门))/;
+
+/** 只被手册提到、但不提供联系方式的角色 / 窗口，命中即转人工 */
+const CONTACT_ENTITY =
+  /(辅导员|宿管|宿舍管理员|保卫处|保卫科|教务窗口|教务老师|老师办公室)/;
+
+/** 问流程而不是找人的表述：有校内线索且检索有命中时，优先按知识库作答 */
+const PROCEDURAL_REQUEST =
+  /(怎么办理|怎么办|如何|流程|步骤|材料|需要什么|多久|几天|能不能|可以吗|条件|规定)/;
 
 /** 校内办事线索：只收具体词，避免“校外租房”这类误判 */
 const CAMPUS_CUE =
-  /(宿舍|寝室|空调|报修|维修|水电|校园卡|一卡通|校园网|网络|教室|场地|借用|证明|学籍|成绩|缓考|补考|休学|复学|请假|奖学金|助学金|贷款|处分|申诉|辅导员|教务|食堂|餐饮|图书馆|校医院|体检|心理|社团|志愿|毕业|选课)/;
+  /(宿舍|寝室|宿管|空调|报修|维修|水电|校园卡|一卡通|校园网|网络|教室|场地|借用|证明|学籍|成绩|缓考|补考|休学|复学|请假|奖学金|助学金|贷款|处分|申诉|投诉|辅导员|教务|食堂|餐饮|图书馆|校医院|体检|心理|社团|志愿|毕业|选课)/;
 
 /** 关键词到部门的显式映射，命中时优先于意图文档里的部门 */
 const DEPARTMENT_CUES: Array<[RegExp, string]> = [
   [/校园卡|一卡通/, 'card-center'],
   [/校园网|网络|断网|网费/, 'network'],
   [/食堂|餐饮/, 'student-affairs'],
-  [/空调|宿舍|寝室|报修|维修|水电/, 'logistics'],
+  [/空调|宿舍|寝室|宿管|报修|维修|水电/, 'logistics'],
   [/教室|场地|借用/, 'classroom'],
   [/缓考|补考|考试|成绩复核/, 'exam'],
-  [/证明|学籍|成绩单|休学|复学|毕业/, 'academic'],
-  [/奖学金|助学金|贷款|处分|申诉|请假|辅导员|心理/, 'student-affairs'],
+  [/教务|证明|学籍|成绩单|休学|复学|毕业/, 'academic'],
+  [/奖学金|助学金|贷款|处分|申诉|投诉|请假|辅导员|心理/, 'student-affairs'],
 ];
 
 const PUNCTUATION = /[\s，。！？、；：,.!?;:"'“”‘’（）()【】[\]<>《》\-—_/\\|·]/g;
@@ -199,12 +209,17 @@ export function planRoute(input: {
 
   let path: RoutePath;
 
-  if (!hits.length) {
-    path = signals.cues.contactRequest || signals.cues.campusCue ? 'handoff' : 'refuse';
-  } else if (signals.cues.outOfScope && evidence < MIN_EVIDENCE) {
+  // 求助型诉求（找人、找窗口、投诉）优先于覆盖率：覆盖率只说明手册出现过这些词，
+  // 不说明手册里有联系方式。范围外的问题仍先拒答，避免“帮我写代码找谁”被当成校内事务。
+  if (signals.cues.outOfScope && !signals.cues.campusCue) {
     path = 'refuse';
-  } else if (signals.cues.contactRequest && evidence < CONTACT_EVIDENCE) {
+  } else if (signals.cues.contactRequest) {
     path = 'handoff';
+  } else if (hits.length && signals.cues.campusCue && PROCEDURAL_REQUEST.test(message)) {
+    // “空调坏了怎么办”这类问流程的问题，即使关键词覆盖偏低，也优先查手册
+    path = 'kb';
+  } else if (!hits.length) {
+    path = signals.cues.campusCue ? 'handoff' : 'refuse';
   } else if (evidence >= MIN_EVIDENCE) {
     path = 'kb';
   } else if (signals.cues.campusCue) {
@@ -218,8 +233,8 @@ export function planRoute(input: {
       tool: 'kb_search',
       path,
       title: '知识库作答',
-      reason: `检索命中 ${hits.length} 个片段，问题关键词覆盖 ${percent}%，意图「${intent.label}」置信度 ${intent.confidence}，因此走知识库作答。`,
-      confidence: Number(Math.min(0.95, Math.max(0.6, Math.min(evidence, intent.confidence))).toFixed(2)),
+      reason: `检索命中 ${hits.length} 个片段，问题关键词覆盖 ${percent}%，且没有找人 / 找窗口的诉求，因此走知识库作答。`,
+      confidence: Number(Math.min(0.95, Math.max(0.6, evidence)).toFixed(2)),
       signals,
     };
   }
@@ -246,9 +261,12 @@ export function planRoute(input: {
     cue: signals.cues.departmentCue,
     store,
   });
-  const reason = signals.cues.contactRequest
-    ? `问题是在找人工或窗口，而不是查流程（知识库关键词覆盖 ${percent}%），因此转人工窗口。`
-    : `问题在校内但知识库未收录（关键词覆盖 ${percent}%），因此给出对应部门的人工窗口。`;
+  const entity = message.match(CONTACT_ENTITY)?.[0];
+  const reason = entity
+    ? `问题在找「${entity}」这类角色或窗口；手册只提到角色、不提供联系方式，因此转人工窗口。`
+    : signals.cues.contactRequest
+      ? `问题是在找人工或窗口，而不是查流程（知识库关键词覆盖 ${percent}%），因此转人工窗口。`
+      : `问题在校内但知识库未收录（关键词覆盖 ${percent}%），因此给出对应部门的人工窗口。`;
 
   return {
     tool: 'handoff_human',

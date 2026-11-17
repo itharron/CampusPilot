@@ -770,7 +770,7 @@ const confidence = Number(Math.min(0.99, Math.max(0.4, 0.55 + 0.44 * margin)).to
 <table>
   <tr><th style="width:26%">实测问题</th><th style="width:22%">识别意图</th><th>置信度</th></tr>
   <tr><td>宿舍空调不制冷了怎么报修，要准备什么材料</td><td>宿舍空调报修</td><td>0.91（live 模式）</td></tr>
-  <tr><td>宿舍空调漏水该找谁处理</td><td>宿舍空调报修</td><td>0.85（mock 模式）</td></tr>
+  <tr><td>宿舍空调坏了</td><td>宿舍空调报修</td><td>0.87（mock 模式）</td></tr>
 </table>
 
 <p>
@@ -789,20 +789,24 @@ const confidence = Number(Math.min(0.99, Math.max(0.4, 0.55 + 0.44 * margin)).to
 
 <table>
   <tr><th style="width:20%">工具</th><th style="width:12%">路径</th><th>选择条件</th><th style="width:28%">输出</th></tr>
-  <tr><td><code>kb_search</code></td><td><code>kb</code></td><td>问题关键词能被知识库命中片段覆盖 ≥ 50%。</td><td>正常检索、模型作答、引用溯源。</td></tr>
-  <tr><td><code>refuse_out_of_scope</code></td><td><code>refuse</code></td><td>无命中且没有校内线索；或命中很弱且属于代码、论文、天气等范围外问题。</td><td>固定拒答文案，说明可办理范围，不调模型。</td></tr>
-  <tr><td><code>handoff_human</code></td><td><code>handoff</code></td><td>明确在找人工 / 窗口（覆盖率 &lt; 75%）；或校内线索明确但知识库未收录。</td><td>归属部门、办理入口、人工窗口、服务时间、兜底渠道。</td></tr>
+  <tr><td><code>kb_search</code></td><td><code>kb</code></td><td>问流程（怎么办 / 材料 / 多久等）且有校内线索与检索命中；或关键词覆盖率 ≥ 50%。</td><td>正常检索、模型作答、引用溯源。</td></tr>
+  <tr><td><code>refuse_out_of_scope</code></td><td><code>refuse</code></td><td>属于代码、论文、天气等范围外问题且没有校内线索；或无命中且无校内线索。</td><td>固定拒答文案，说明可办理范围，不调模型。</td></tr>
+  <tr><td><code>handoff_human</code></td><td><code>handoff</code></td><td>找谁 / 在哪 / 电话 / 地址 / 窗口 / 投诉等求助诉求；或辅导员、宿管、保卫处、教务窗口等只被手册提到、不含联系方式的实体；或校内线索明确但知识库未收录。</td><td>归属部门、办理入口、人工窗口、服务时间、兜底渠道。</td></tr>
 </table>
 
 <p>
   判定依据不是 BM25 分数。检索分数会按最高分归一化，任意查询的 topScore 都是 1，单字碰巧命中也会得高分；
   因此改用「问题里能被命中片段的双字及以上关键词覆盖的比例」（<code>lexicalEvidence</code>）衡量是否真有依据。
-  判定顺序如下，先命中先返回：
+  但覆盖率只说明手册里出现过这些词，不说明手册里有联系人或办公地点，所以<strong>求助型诉求优先于覆盖率</strong>：
+  问「找辅导员」时，手册的请假条款会提到辅导员、覆盖率可能是 100%，但手册并不提供辅导员的联系方式，
+  此时必须转人工，而不是返回一段请假流程。路径由提问本身的信号独立决定，意图只随 <code>meta</code> 记录，
+  不参与分支；知识库置信度按覆盖率计算，不再取意图置信度。判定顺序如下，先命中先返回：
 </p>
 
-<pre><code>if (!hits.length) path = contactRequest || campusCue ? 'handoff' : 'refuse';
-else if (outOfScope &amp;&amp; evidence &lt; 0.5) path = 'refuse';
-else if (contactRequest &amp;&amp; evidence &lt; 0.75) path = 'handoff';
+<pre><code>if (outOfScope &amp;&amp; !campusCue) path = 'refuse';
+else if (contactRequest) path = 'handoff';
+else if (hits.length &amp;&amp; campusCue &amp;&amp; procedural) path = 'kb';
+else if (!hits.length) path = campusCue ? 'handoff' : 'refuse';
 else if (evidence &gt;= 0.5) path = 'kb';
 else if (campusCue) path = 'handoff';
 else path = 'refuse';</code></pre>
@@ -848,9 +852,9 @@ const indexText = (chunk) =&gt; [chunk.docTitle, chunk.docTitle, chunk.docTitle,
 const specificBoost = matched.filter((term) =&gt; term.length &gt; 1).length * 0.15;</code></pre>
 
 <p>
-  实测问题「宿舍空调不制冷了怎么报修，要准备什么材料」在 live 模式下命中 4 个片段，最高归一化得分 1，
-  命中词为 <code>宿舍、舍空、空调、调不、不制、制冷</code>；mock 模式下问题「宿舍空调漏水该找谁处理」同样命中 4 个片段，
-  命中词为 <code>宿舍、舍空、空调、漏水、宿、舍</code>。两例都正确落到「宿舍空调报修」文档。
+  实测问题「宿舍空调不制冷了怎么报修，要准备什么材料」命中 4 个片段，最高归一化得分 1，
+  命中词为 <code>宿舍、舍空、空调、调不、不制、制冷</code>；mock 与 live 使用同一套检索实现，命中词与引用一致，
+  都正确落到「宿舍空调报修」文档。
 </p>
 
 <h3>4.5.3 可选向量混合</h3>
@@ -970,15 +974,15 @@ HTTP/1.1 400 Bad Request
 
 <table>
   <tr><th style="width:24%">指标</th><th>live（deepseek-v4-pro）</th><th>mock（campus-pilot-mock）</th></tr>
-  <tr><td>总耗时</td><td>9.99 s</td><td>10.10 s（同类问题，mock 按固定节奏输出）</td></tr>
-  <tr><td>delta 事件数</td><td>174</td><td>371</td></tr>
-  <tr><td>服务端估算 tokens</td><td>126</td><td>371</td></tr>
+  <tr><td>总耗时</td><td>9.99 s</td><td>10.35 s（同一问题，mock 按固定节奏输出）</td></tr>
+  <tr><td>delta 事件数</td><td>174</td><td>369</td></tr>
+  <tr><td>服务端估算 tokens</td><td>126</td><td>369</td></tr>
   <tr><td>引用条数</td><td>3</td><td>3</td></tr>
-  <tr><td>意图置信度</td><td>0.91</td><td>0.85</td></tr>
+  <tr><td>意图置信度</td><td>0.91</td><td>0.91</td></tr>
 </table>
 
 <p class="small">
-  两条 mock 数据来自不同问题（「宿舍空调漏水该找谁处理」），因此耗时接近但输出长度不同；
+  live 与 mock 使用同一问题，mock 按固定节奏逐字输出，因此 delta 更多、耗时接近；
   这里对比的是「同一条链路、同一套引用与协议」，不是模型质量对比。
 </p>
 
@@ -1224,14 +1228,19 @@ HTTP/1.1 400 Bad Request
     <td>684 ms；42 个 delta；0 token；<code>cached=true</code>；引用与首次一致，<code>route</code> 与部门信息保留</td>
   </tr>
   <tr>
-    <td>路径决策（mock）</td>
-    <td>「宿舍空调坏了」/「帮我写一段 Python 爬虫」/「投诉食堂找谁」</td>
-    <td>分别返回 <code>kb</code>（3 条引用）/ <code>refuse</code>（范围说明，无引用）/ <code>handoff</code>（学生工作处、学生服务大厅 3 号窗口、服务时间与兜底渠道）；三例 <code>meta.route</code> 均非空</td>
+    <td>路径决策（live + mock）</td>
+    <td>「请假怎么办理」/「在读证明怎么开」/「空调坏了怎么办」；「天气怎么样」/「帮我写一段 Python 爬虫」；「投诉食堂找谁」</td>
+    <td>三种路径均符合预期：知识库 3 例都带 3 条引用；范围外 2 例拒答且无引用；投诉食堂转人工（学生工作处、学生服务大厅 3 号窗口）。live 与 mock 结果一致</td>
+  </tr>
+  <tr>
+    <td>角色求助（live + mock）</td>
+    <td>「找辅导员」/「我要找宿管」/「教务处窗口在哪」</td>
+    <td>均为 <code>handoff</code>：辅导员→学生工作处 3 号窗口，宿管→后勤维修窗口，教务窗口→教务处；「找辅导员」关键词覆盖 100% 仍不走知识库，路径不再依赖意图字段</td>
   </tr>
   <tr>
     <td>mock 模式回答</td>
-    <td>「宿舍空调漏水该找谁处理」</td>
-    <td>10.10 s；371 个 delta；371 tokens；3 条引用；意图置信度 0.85</td>
+    <td>「宿舍空调不制冷了怎么报修，要准备什么材料」</td>
+    <td>10.35 s；369 个 delta；369 tokens；3 条引用；意图置信度 0.91</td>
   </tr>
   <tr>
     <td>输入安全拦截</td>
@@ -1293,6 +1302,8 @@ HTTP/1.1 400 Bad Request
   <tr><td>路径：知识库</td><td>发送「宿舍空调坏了」</td><td>路径标签为「知识库作答」，显示置信度与判定依据，引用卡片正常</td></tr>
   <tr><td>路径：拒答</td><td>发送「帮我写一段 Python 爬虫」</td><td>路径标签为「拒答（超出范围）」，不显示引用与意图标签，文案说明可办理范围</td></tr>
   <tr><td>路径：转人工</td><td>发送「投诉食堂找谁」</td><td>路径标签为「转人工窗口」，列出归属部门、办理入口、人工窗口、服务时间、兜底渠道</td></tr>
+  <tr><td>路径：角色求助</td><td>发送「找辅导员」</td><td>路径为「转人工窗口」，给出学生工作处与学生服务大厅 3 号窗口；覆盖率 100% 也不走知识库</td></tr>
+  <tr><td>路径：流程问题</td><td>发送「空调坏了怎么办」</td><td>路径为「知识库作答」，带 3 条引用，不被角色求助规则误伤</td></tr>
   <tr><td>缓存保留路径</td><td>同一句转人工问题连问两次</td><td>第二条出现「命中缓存」，路径与部门信息与首次一致</td></tr>
   <tr><td>检索引用</td><td>发送「宿舍空调坏了」</td><td>出现依据来源，可展开手册原文，重合关键词高亮</td></tr>
   <tr><td>主题切换</td><td>点顶栏主题按钮后刷新</td><td>亮/暗即时切换；刷新保持；首屏无白闪</td></tr>
@@ -1392,7 +1403,8 @@ curl.exe -s -N -H "Content-Type: application/json" ^
 # 4) 同一问题再发一次，确认 cached=true 且 tokens=0
 
 # 5) 观察路径决策：换成「帮我写一段 Python 爬虫」应为 refuse，
-#    「投诉食堂找谁」应为 handoff（meta.route.path / department）
+#    「投诉食堂找谁」「找辅导员」应为 handoff（meta.route.path / department）；
+#    「空调坏了怎么办」应仍为 kb 并带引用
 
 # 6) 注入拦截
 curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
