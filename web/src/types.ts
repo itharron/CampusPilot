@@ -50,6 +50,15 @@ export interface Citation {
   excerpt: string;
 }
 
+/** 服务端对口语化 / 半句提问的推测结果 */
+export interface Interpretation {
+  original: string;
+  query: string;
+  guessed: boolean;
+  reason: string;
+  candidates: Array<{ label: string; query: string }>;
+}
+
 export interface ChatMeta {
   mode: 'mock' | 'live';
   model: string;
@@ -57,6 +66,7 @@ export interface ChatMeta {
   topDocTitle: string | null;
   citations?: Citation[];
   route?: RouteDecision;
+  interpretation?: Interpretation;
   cached: boolean;
   retrieval?: { name: string; hits: number; topScore?: number; matched?: string[] };
   quotaRemaining: number | null;

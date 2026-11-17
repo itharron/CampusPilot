@@ -304,6 +304,7 @@ function onKeydown(event: KeyboardEvent) {
         :key="item.id"
         :message="item"
         :question="questionBefore(index)"
+        @pick="applyQuickPrompt"
       />
     </main>
 

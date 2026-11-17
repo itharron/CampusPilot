@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { interpretQuery } from '../agent/interpreter';
 import {
   composeRouteAnswer,
   fallbackRoute,
@@ -43,7 +44,14 @@ chatRouter.post('/', async (req, res) => {
     return;
   }
 
-  // 2) 单 IP 限流
+  // 2) 提问容错：把半句、俗称、错字补成校内标准问法；同一件事共用一份缓存
+  const interpretation = interpretQuery(message);
+  const query = interpretation.query;
+  if (interpretation.guessed) {
+    console.log('[interpret]', JSON.stringify({ original: message.slice(0, 40), query }));
+  }
+
+  // 3) 单 IP 限流
   const rate = rateLimiter.consume(ip);
   if (!rate.allowed) {
     const retryAfter = Math.max(1, Math.ceil(rate.resetInMs / 1000));
@@ -72,7 +80,7 @@ chatRouter.post('/', async (req, res) => {
 
   try {
     // 4) 相同问题直接回放缓存（仍然走流式，前端体验一致）
-    const cached = answerCache.get(message);
+    const cached = answerCache.get(query);
     if (cached) {
       sse.send('meta', {
         mode: provider.mode,
@@ -81,6 +89,7 @@ chatRouter.post('/', async (req, res) => {
         topDocTitle: cached.topDocTitle,
         citations: cached.citations,
         route: cached.route,
+        interpretation,
         cached: true,
         quotaRemaining: decision.snapshot.remainingRequests,
         rateRemaining: rate.remaining,
@@ -98,7 +107,7 @@ chatRouter.post('/', async (req, res) => {
     }
 
     // 5) 检索 → 引用 → 意图 → 组装上下文
-    const hits = await retriever.search(message, { topK: 4 });
+    const hits = await retriever.search(query, { topK: 4 });
     const orderedHits = orderHitsForAnswer(hits);
     const intent = recognizeIntent(hits);
     const citations = buildCitations(orderedHits);
@@ -108,15 +117,15 @@ chatRouter.post('/', async (req, res) => {
     // 判定异常时回退到原来的知识库链路，不影响已有问答。
     let route: RouteDecision;
     try {
-      route = planRoute({ message, hits, intent, store });
+      route = planRoute({ message: query, hits, intent, store });
     } catch (error) {
       console.error('[route] 路径判定失败，回退知识库：', (error as Error)?.message);
-      route = fallbackRoute({ message, hits, intent });
+      route = fallbackRoute({ message: query, hits, intent });
     }
     console.log(
       '[route]',
       JSON.stringify({
-        question: message.slice(0, 40),
+        question: query.slice(0, 40),
         tool: route.tool,
         path: route.path,
         confidence: route.confidence,
@@ -133,6 +142,7 @@ chatRouter.post('/', async (req, res) => {
       topDocTitle: useKnowledge ? (topDoc?.title ?? null) : null,
       citations: useKnowledge ? citations : [],
       route,
+      interpretation,
       cached: false,
       retrieval: {
         name: retriever.name,
@@ -158,7 +168,7 @@ chatRouter.post('/', async (req, res) => {
 
       const tokens = estimateTokens(text);
       quota.addTokens(ip, tokens);
-      answerCache.set(message, {
+      answerCache.set(query, {
         text,
         intentLabel: intent.label,
         topDocTitle: null,
@@ -175,7 +185,9 @@ chatRouter.post('/', async (req, res) => {
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `【参考资料】\n${renderContext(orderedHits)}\n\n【同学的问题】\n${message}`,
+        content: `【参考资料】\n${renderContext(orderedHits)}\n\n【同学的问题】\n${query}${
+          interpretation.guessed ? `\n\n【同学的原话】\n${message}（已按「${query}」理解）` : ''
+        }`,
       },
     ];
 
@@ -195,7 +207,7 @@ chatRouter.post('/', async (req, res) => {
     quota.addTokens(ip, tokens);
 
     if (answer.trim()) {
-      answerCache.set(message, {
+      answerCache.set(query, {
         text: answer,
         intentLabel: intent.label,
         topDocTitle: topDoc?.title ?? null,
@@ -217,7 +229,7 @@ chatRouter.post('/', async (req, res) => {
 
     if (!answer) {
       // 一个字都没吐出来：退回本地模板答案，保证用户仍然拿得到办理指引
-      const hits = await retriever.search(message, { topK: 1 }).catch(() => []);
+      const hits = await retriever.search(query, { topK: 1 }).catch(() => []);
       const text = `模型服务暂时不可用，先按本地知识库给你一份指引：\n\n${composeAnswer(hits, store)}`;
 
       for (let index = 0; index < text.length; index += 6) {

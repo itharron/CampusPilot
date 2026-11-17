@@ -279,7 +279,7 @@
   <p class="kind">技 术 文 档</p>
 
   <div class="meta">
-    <div><strong>文档版本</strong>v1.10</div>
+    <div><strong>文档版本</strong>v1.11</div>
     <div><strong>对应代码</strong>v0.2.0 · 以提交时的 main 分支为准</div>
     <div><strong>团队名称</strong>想过周六</div>
     <div><strong>学校</strong>三江学院</div>
@@ -823,6 +823,28 @@ else path = 'refuse';</code></pre>
   行为与加入路径选择之前完全相同。
 </p>
 
+<h3>4.4.3 提问容错与合理推测</h3>
+
+<p>
+  同学的口语输入常常只有半句或一个名词。检索与判路之前，<code>agent/interpreter.ts</code> 先做一次归一化，
+  再把结果同时用于缓存键、检索、意图与路径判定——同一件事因此只有一种问法，界面也能复用同一份答案。
+</p>
+
+<table>
+  <tr><th style="width:16%">类型</th><th style="width:38%">例子</th><th>归一化结果</th></tr>
+  <tr><td>俗称 / 同义词</td><td>冷气、一卡通、延考 / 延期考试、寝室</td><td>空调、校园卡、缓考、宿舍</td></tr>
+  <tr><td>半句 / 单名词</td><td>空调、请假、证明</td><td>宿舍空调坏了怎么报修、请假怎么办理、在读证明怎么开</td></tr>
+  <tr><td>错字 / 漏字 / 口语</td><td>空掉、正明、卡丢了、网上不去、我那个证明咋弄、寝室空调不冷、宿舍太热了</td><td>空调、证明、校园卡丢了怎么挂失补办、校园网连不上怎么报修、在读证明怎么开、宿舍空调不制冷怎么报修</td></tr>
+</table>
+
+<p>
+  推测结果随 <code>meta.interpretation</code>（<code>original / query / guessed / reason / candidates</code>）下发，
+  界面明确写出「推测你问的是「…」」与一句依据，不假装确定；「证明」「请假」这类可能有两个方向的问题，
+  再给一个候选按钮（成绩单 / 缓考），点一下即以候选问法重新提问。三条边界保持不变：认不出校内涵义就原样返回、
+  交给拒答规则；「找辅导员」「投诉食堂找谁」「我要找宿管」这类找人诉求只统一叫法、不做场景补全，仍转人工；
+  输入过滤在推测之前执行，隐私、注入与越界拦截一条不松。
+</p>
+
 <h2>4.5 中文检索与 BM25</h2>
 
 <h3>4.5.1 切词</h3>
@@ -1181,6 +1203,7 @@ HTTP/1.1 400 Bad Request
 <table>
   <tr><th style="width:22%">界面元素</th><th>显示内容</th></tr>
   <tr><td>路径标签</td><td>「路径：知识库作答 / 拒答（超出范围） / 转人工窗口」，三种路径用不同颜色区分。</td></tr>
+  <tr><td>推测提示</td><td><code>meta.interpretation.guessed=true</code> 时，在路径卡上方显示「推测 你问的是「…」」与一句依据；有候选方向时再给一个按钮（如「其实要的是成绩单」），点击即以该问法重新发送。</td></tr>
   <tr><td>决策卡</td><td>工具名、路径标题、置信度，以及一句判定依据（如「问题是在找人工或窗口，而不是查流程」或「没有检索到可用片段」）。</td></tr>
   <tr><td>部门信息</td><td>仅转人工路径显示：归属部门、办理入口、人工窗口、服务时间、兜底渠道，均读取 <code>config/school.json</code>。</td></tr>
   <tr><td>引用与意图</td><td>知识库路径显示意图标签与引用卡片；拒答与转人工不显示引用，避免用无关片段误导。</td></tr>
@@ -1236,6 +1259,11 @@ HTTP/1.1 400 Bad Request
     <td>角色求助（live + mock）</td>
     <td>「找辅导员」/「我要找宿管」/「教务处窗口在哪」</td>
     <td>均为 <code>handoff</code>：辅导员→学生工作处 3 号窗口，宿管→后勤维修窗口，教务窗口→教务处；「找辅导员」关键词覆盖 100% 仍不走知识库，路径不再依赖意图字段</td>
+  </tr>
+  <tr>
+    <td>口语 / 半句输入（live + mock）</td>
+    <td>「空调」「请假」「证明」「宿舍太热了」「卡丢了」「网上不去」「我那个证明咋弄」「寝室空调不冷」「延考怎么申请」</td>
+    <td>9 条均推测为校内标准问法并走 <code>kb</code>，各带 3 条引用；「证明」「请假」额外给 1 个候选方向。live 与 mock 逐条一致；同批回归中「天气怎么样」仍拒答、注入仍 400</td>
   </tr>
   <tr>
     <td>mock 模式回答</td>
@@ -1567,7 +1595,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 </table>
 
 <p class="footer-note">
-  CampusPilot 技术文档 · v1.10 · 2026-11-16/17 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
+  CampusPilot 技术文档 · v1.11 · 2026-11-16/17 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
   数据与代码版本以本文档提交时的 main 分支为准。
 </p>
 

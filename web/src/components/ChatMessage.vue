@@ -4,7 +4,12 @@ import CitationList from './CitationList.vue';
 import type { ChatMessageItem } from '../types';
 
 const props = defineProps<{ message: ChatMessageItem; question?: string }>();
+const emit = defineEmits<{ pick: [query: string] }>();
 const route = computed(() => props.message.meta?.route ?? null);
+const guess = computed(() => {
+  const interpretation = props.message.meta?.interpretation;
+  return interpretation?.guessed ? interpretation : null;
+});
 </script>
 
 <template>
@@ -21,6 +26,25 @@ const route = computed(() => props.message.meta?.route ?? null);
         <span v-if="message.meta.retrieval" class="chip retrieval">
           {{ message.meta.retrieval.name }} 检索 · {{ message.meta.retrieval.hits }} 个片段
         </span>
+      </div>
+
+      <div v-if="guess" class="guess-note">
+        <div class="guess-head">
+          <span class="guess-tag">推测</span>
+          <span>你问的是「<strong>{{ guess.query }}</strong>」</span>
+        </div>
+        <p class="guess-why">{{ guess.reason }}</p>
+        <div v-if="guess.candidates.length" class="guess-actions">
+          <span class="guess-ask">不是这个？</span>
+          <button
+            v-for="candidate in guess.candidates"
+            :key="candidate.query"
+            type="button"
+            @click="emit('pick', candidate.query)"
+          >
+            {{ candidate.label }}
+          </button>
+        </div>
       </div>
 
       <div v-if="route" class="route-note" :class="'route-' + route.path">
