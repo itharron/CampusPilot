@@ -545,6 +545,93 @@ html,
   color: var(--success);
 }
 
+.chip.route {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.chip.route-refuse {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.chip.route-handoff {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+/* 作答前的路径决策：显示走了哪条工具路径、依据与人工窗口 */
+.route-note {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  background: var(--surface-soft);
+  border-radius: var(--radius-md);
+  padding: 8px 11px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.route-note.route-refuse {
+  border-left-color: var(--warn);
+}
+
+.route-note.route-handoff {
+  border-left-color: var(--success);
+}
+
+.route-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.route-head strong {
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.route-tool {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  color: var(--text-soft);
+}
+
+.route-conf {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.route-why {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.route-contact {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.route-contact li {
+  display: flex;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.route-contact li span {
+  flex: 0 0 60px;
+  color: var(--text-faint);
+}
+
 .bubble {
   background: var(--bubble);
   border: 1px solid var(--border);

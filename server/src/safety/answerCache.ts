@@ -1,8 +1,12 @@
+import type { RouteDecision } from '../agent/planner';
+
 export interface CachedAnswer {
   text: string;
   intentLabel: string;
   topDocTitle: string | null;
   citations: unknown[];
+  /** 缓存回放时复用当时的路径决策，保证界面前后一致 */
+  route?: RouteDecision;
   createdAt: number;
 }
 

@@ -1,4 +1,10 @@
 import { Router } from 'express';
+import {
+  composeRouteAnswer,
+  fallbackRoute,
+  planRoute,
+  type RouteDecision,
+} from '../agent/planner';
 import { buildCitations, composeAnswer, orderHitsForAnswer, renderContext } from '../answer';
 import { config, estimateTokens } from '../config';
 import type { ChatMessage } from '../llm/provider';
@@ -74,6 +80,7 @@ chatRouter.post('/', async (req, res) => {
         intent: { id: 'cached', label: cached.intentLabel, confidence: 1 },
         topDocTitle: cached.topDocTitle,
         citations: cached.citations,
+        route: cached.route,
         cached: true,
         quotaRemaining: decision.snapshot.remainingRequests,
         rateRemaining: rate.remaining,
@@ -97,12 +104,35 @@ chatRouter.post('/', async (req, res) => {
     const citations = buildCitations(orderedHits);
     const topDoc = groupHitsByDoc(hits)[0] ?? null;
 
+    // 作答前先做一次显式的工具 / 路径选择：kb_search、refuse、handoff。
+    // 判定异常时回退到原来的知识库链路，不影响已有问答。
+    let route: RouteDecision;
+    try {
+      route = planRoute({ message, hits, intent, store });
+    } catch (error) {
+      console.error('[route] 路径判定失败，回退知识库：', (error as Error)?.message);
+      route = fallbackRoute({ message, hits, intent });
+    }
+    console.log(
+      '[route]',
+      JSON.stringify({
+        question: message.slice(0, 40),
+        tool: route.tool,
+        path: route.path,
+        confidence: route.confidence,
+        reason: route.reason,
+      }),
+    );
+
+    const useKnowledge = route.path === 'kb';
+
     sse.send('meta', {
       mode: provider.mode,
       model: provider.model,
       intent,
-      topDocTitle: topDoc?.title ?? null,
-      citations,
+      topDocTitle: useKnowledge ? (topDoc?.title ?? null) : null,
+      citations: useKnowledge ? citations : [],
+      route,
       cached: false,
       retrieval: {
         name: retriever.name,
@@ -113,6 +143,33 @@ chatRouter.post('/', async (req, res) => {
       quotaRemaining: decision.snapshot.remainingRequests,
       rateRemaining: rate.remaining,
     });
+
+    // 拒答 / 转人工：文案本地生成，不调用模型，mock 与 live 表现一致
+    if (!useKnowledge) {
+      const text = composeRouteAnswer(route);
+
+      for (let index = 0; index < text.length; index += 6) {
+        if (controller.signal.aborted) return;
+        sse.send('delta', { text: text.slice(index, index + 6) });
+        await sleep(8);
+      }
+
+      if (controller.signal.aborted) return;
+
+      const tokens = estimateTokens(text);
+      quota.addTokens(ip, tokens);
+      answerCache.set(message, {
+        text,
+        intentLabel: intent.label,
+        topDocTitle: null,
+        citations: [],
+        route,
+      });
+
+      sse.send('done', { cached: false, tokens });
+      sse.close();
+      return;
+    }
 
     const messages: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -143,6 +200,7 @@ chatRouter.post('/', async (req, res) => {
         intentLabel: intent.label,
         topDocTitle: topDoc?.title ?? null,
         citations,
+        route,
       });
     }
 
