@@ -2,7 +2,7 @@
 
 - 当前版本：**v0.2.0**
 - 线上演示：<http://47.96.20.128:8787>（阿里云 ECS，单进程 Express 同时托管前端与 API）
-- 技术文档：[docs/CampusPilot-技术文档.pdf](docs/CampusPilot-技术文档.pdf)（PDF，27 页）
+- 技术文档：[docs/CampusPilot-技术文档.pdf](docs/CampusPilot-技术文档.pdf)（PDF，29 页）
 - 演示视频脚本：[docs/demo-script.md](docs/demo-script.md)
 
 ## 一、项目介绍
@@ -13,7 +13,8 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 2. **给出办理指引**：返回归属部门、办理时限、办理入口、办理步骤、所需材料与注意事项。
 3. **标注出处**：每条回答下方列出「依据来源」，点开可以看到手册原文片段（文档名 + 章节 + 条款）。
 4. **流式呈现**：回答像真人打字一样逐字出现，不用等整段生成完。
-5. **知识库可扩充**：在「知识库入库」页上传 PDF / Word，预览切分结果后确认入库，回到对话页立即可被检索命中。
+5. **知识库可扩充**：在「知识库入库」页上传 PDF / Word / Markdown / TXT，预览切分结果后确认入库，回到对话页立即可被检索命中。
+6. **作答前先选路径**：每次提问先做一次显式的工具选择（查知识库 / 拒答 / 转人工），并把选中的路径、依据和置信度显示在回答上方。
 
 当前版本 **v0.2.0**，定位是「一位真实学生能用、换一所学校只改数据」的可演示作品：语料是自编示例，但按真实学生手册的体例组织（章、条、部门、时限、材料），检索、引用、上传入库全链路都是真实现。
 
@@ -22,6 +23,8 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 | 能力 | 状态 |
 | --- | --- |
 | 单页对话界面 + 逐字流式输出 | 已完成 |
+| 作答前工具路径选择（知识库作答 / 越界拒答 / 转人工窗口） | 已完成 |
+| 路径决策可视化（路径、依据、置信度、部门窗口随回答展示） | 已完成 |
 | 亮色 / 暗色主题（默认跟随系统，手动切换后记住选择） | 已完成 |
 | 引用原文高亮提问关键词、检索中过渡提示 | 已完成 |
 | 首页 3 条高频示例 + 「更多示例」展开（共 9 条） | 已完成 |
@@ -29,7 +32,7 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 | 后端模型 API 代理（SSE 转发，Key 只在服务端） | 已完成 |
 | 无 Key 自动降级 mock 模式 | 已完成 |
 | 按 IP 限流、每日请求与 token 上限 | 已完成 |
-| 相同问题答案缓存（含引用回放） | 已完成 |
+| 相同问题答案缓存（含引用与路径回放） | 已完成 |
 | 输入过滤（注入 / 越界 / 敏感信息 / 超长） | 已完成（规则实现） |
 | 数据与代码分离（`config/school.json` + `data/`） | 已完成 |
 | 按标题层级切块 + 出处元数据 | 已完成 |
@@ -39,7 +42,7 @@ CampusPilot 是一个面向高校学生的「一句话办事」服务台原型�
 | 上传入库登录授权（演示账号 `demo` / `campus2026`） | 已完成 |
 | 前端静态托管与 SPA 深链接回退（刷新 `/chat`、`/upload` 不再 404） | 已完成 |
 | 公网部署（阿里云 ECS + pm2，单端口 8787） | 已完成 |
-| 工具调用（真正下单/查进度） | 未开始 |
+| 办事系统写入（真正下单 / 查进度） | 未开始 |
 
 ## 二、技术架构
 
@@ -66,6 +69,10 @@ Vite Dev Server (5173) ──proxy──▶ Node + TypeScript 后端 (8787)
                                     │     ├─ embedding.ts     OpenAI 兼容 /embeddings（可选）
                                     │     └─ hybridRetriever.ts  BM25 + 向量加权合并
                                     │
+                                    ├── Agent 路径决策层 agent/
+                                    │     ├─ school.ts  读取 config/school.json 的部门 / 窗口 / 服务时间
+                                    │     └─ planner.ts 作答前选择 kb_search / refuse_out_of_scope / handoff_human
+                                    │
                                     ├── 引用与答案
                                     │     ├─ answer.ts   composeAnswer / buildCitations / renderContext
                                     │     └── intent.ts  取最高分文档作为意图
@@ -82,22 +89,36 @@ Vite Dev Server (5173) ──proxy──▶ Node + TypeScript 后端 (8787)
 **SSE 协议**：
 
 ```
-event: meta    → { mode, model, intent, topDocTitle, citations[], retrieval{name,hits,topScore,matched}, cached, quotaRemaining, rateRemaining }
+event: meta    → { mode, model, intent, route, topDocTitle, citations[], retrieval{name,hits,topScore,matched}, cached, quotaRemaining, rateRemaining }
 event: delta   → { text }              // 增量片段
 event: done    → { cached, tokens }
 event: error   → { code, message }     // 已产出的内容保留
 ```
 
-`citations[]` 每项包含 `index / docId / docTitle / document / chapter / article / section / source / pages / department / excerpt`，前端直接用 `source` 展示出处、用 `excerpt` 展开原文。
+`citations[]` 每项包含 `index / docId / docTitle / document / chapter / article / section / source / pages / department / excerpt`，前端直接用 `source` 展示出处、用 `excerpt` 展开原文。`route` 是作答前的路径决策结果（`tool / path / title / reason / confidence / signals / department?`），界面据此在回答上方显示路径与判定依据。
 
-### 2.1 语料与切分
+### 2.1 作答前的工具路径选择
+
+每次提问，服务端先跑一遍路由决策（`server/src/agent/planner.ts`），在调用模型之前从三个工具里**结构化地选一个**，再进入对应分支：
+
+| 工具 | 路径 | 触发条件 | 输出 |
+| --- | --- | --- | --- |
+| `kb_search` | `kb` | 知识库多字关键词覆盖率 ≥ 0.5 | 正常检索 + 模型作答 + 引用 |
+| `refuse_out_of_scope` | `refuse` | 无命中且无校内线索；或命中但覆盖率 < 0.5 且属于代码 / 论文 / 天气等范围外问题 | 固定拒答文案，不调模型 |
+| `handoff_human` | `handoff` | 找人工 / 窗口（覆盖率 < 0.75）；或校内线索明确但知识库未收录 | 部门、办理入口、人工窗口、服务时间、兜底渠道 |
+
+判定不依赖模型打分：BM25 分数归一化后最高分恒为 1，无法区分「真命中」和「单字碰巧命中」，因此改用**问题里能被命中片段的双字及以上关键词覆盖的比例**作为依据（`lexicalEvidence`）。决策顺序为：无命中 →（找人工或有校内线索则转人工，否则拒答）；范围外且覆盖率低 → 拒答；找人工且覆盖率不足 → 转人工；覆盖率达标 → 知识库；其余拒答。
+
+决策结果是一个 `RouteDecision` 对象，包含 `tool / path / title / reason / confidence / signals{intent, retrieval, cues} / department?`，随 SSE `meta` 原样下发、写入答案缓存，并打印 `[route]` 结构化日志。界面在回答上方显示「路径：…」标签和一张决策卡（工具名、置信度、判定依据；转人工时附部门与窗口）。拒答和转人工的文案由服务端固定生成并本地逐字流式下发，因此 mock 与 live 表现一致，也不消耗模型额度。路由层抛异常时回退为 `kb_search`，行为与加入路由前相同。
+
+### 2.2 语料与切分
 
 - 一条事项一个 Markdown 文件，放在 `data/` 下（`data/sample/` 是内置示例，`data/uploads/` 是运行时上传入库）。
 - `frontmatter` 保存结构化字段，正文用 `##` / `###` 小节组织。
 - 切块规则：按 `##` / `###` 切分；每个片段带上 `docId / document / chapter / article / section / source`；如果正文里有 `<!-- p:N -->` 页码锚点，还会带上页码区间。
 - 片段出处串示例：`《示例大学学生手册（2026）》 · 第四章 学籍与证明 · 第二十三条 · 办理步骤`。
 
-### 2.2 检索
+### 2.3 检索
 
 默认 **BM25**，不下载任何模型权重：
 
@@ -109,7 +130,7 @@ event: error   → { code, message }     // 已产出的内容保留
 
 `Retriever` 接口保持不变，将来换别的召回方案只需要替换 `runtime.ts` 里的实现。
 
-### 2.3 上传入库
+### 2.4 上传入库
 
 - 支持 PDF（`pdf-parse`）、Word `.docx`（`mammoth`）、`.md` / `.txt`；单文件上限 50 MB，类型白名单在 multer 的 `fileFilter` 里校验。
 - `POST /api/kb/preview`：抽文本 → 把「第X章 / 第X条」短行规范为标题 → 切块 → 返回草稿（15 分钟有效）与切分预览、建议元信息。
@@ -118,14 +139,15 @@ event: error   → { code, message }     // 已产出的内容保留
 - 上传接口单独限流（10 次/分钟/IP）。
 - 入库需要登录：`POST /api/auth/login` 校验演示账号后发放内存 token（2 小时有效），`/api/kb/preview`、`/api/kb/confirm` 校验 `Authorization: Bearer <token>`，未登录返回 `401 UNAUTHORIZED`。演示账号为 `demo` / `campus2026`，页面上直接展示并可一键填入；账号仅用于演示，不承载真实数据权限，进程重启后 token 全部失效。浏览知识库列表与对话检索无需登录。
 
-### 2.4 为什么 mock 也能完整演示
+### 2.5 为什么 mock 也能完整演示
 
 路由层不区分模式：先检索 → 生成 `citations` → 用检索结果拼本地模板答案（`composeAnswer`，末尾自动附「依据来源」），再交给 `Provider.stream()`。
 
 - 有 Key：把编号后的参考资料 + 问题发给模型，要求用 `[n]` 标注依据，按 token 流式返回；模板答案只作为出错兜底。
 - 无 Key：`MockProvider` 把模板答案按 2 字符一块吐出，流式体验一致。
+- 两条路径都不经过模型：路径决策在检索后、调用模型前完成；拒答与转人工的文案由服务端本地逐字流式下发，因此没有 Key 也能完整演示三条路径。
 
-### 2.5 静态托管与深链接回退
+### 2.6 静态托管与深链接回退
 
 生产模式（`npm start`）下，Express 先 `express.static` 托管 `web/dist`，再对前端路由做回退：非 `/api` 前缀、非 `/assets/`、且路径没有扩展名的 `GET` 请求，一律返回 `web/dist/index.html`，因此直接访问或刷新 `/chat`、`/upload` 都能正常打开。其中 `/chat` 是首页对话页的路由别名，渲染同一个对话界面，顶部导航仍指向 `/`。缺失的静态资源（如 `/assets/missing.js`）与 `/api/*` 不存在路由仍返回 404，其中接口 404 为 JSON（`{"ok":false,"code":"NOT_FOUND"}`），不会被回退吞成页面。
 
@@ -378,7 +400,10 @@ origin: sample
 | --- | --- | --- |
 | 健康检查 | `curl http://localhost:8787/api/health` | 返回 `ok=true`；未配置 Key 时 `mode=mock`，配置 Key 后为 `live`；`retriever` 默认 `bm25` |
 | 逐字流式 | 页面发「我要开在读证明」 | 回复逐字出现，结束后光标消失 |
-| 检索引用 | 发「宿舍空调坏了」 | 回答下方出现「依据来源」，可展开看到手册原文，重合关键词有底色高亮 |
+| 检索引用 | 发「宿舍空调坏了」 | 回答上方显示「路径：知识库作答」；下方出现「依据来源」，可展开看到手册原文，重合关键词有底色高亮 |
+| 路径：拒答 | 发「帮我写一段 Python 爬虫」 | 路径标签为「拒答（超出范围）」，决策卡说明判定依据，不出现引用卡片与意图标签 |
+| 路径：转人工 | 发「投诉食堂找谁」 | 路径标签为「转人工窗口」，决策卡列出归属部门、办理入口、人工窗口、服务时间与兜底渠道 |
+| 缓存保留路径 | 同一句转人工问题连问两次 | 第二条出现「命中缓存」，路径与部门信息与第一次一致 |
 | 主题切换 | 点顶栏右侧的圆形按钮 | 亮/暗立即切换；刷新或重开仍保持；首次加载不出现白底闪烁 |
 | 直达链接 | 打开 `/?q=宿舍空调坏了` | 自动填入并发送，地址栏的 `q` 参数随即被清除 |
 | 出处准确 | 展开第一条引用 | 形如「《示例大学学生手册（2026）》 · 第八章 学生社区与后勤 · 第五十条 · 办理步骤」 |
@@ -406,7 +431,7 @@ CampusPilot/
 ├── docs/
 │   ├── git-conventions.md        # Git 提交规范
 │   ├── tech-report.html          # 技术文档源文件（Chrome 打印生成 PDF）
-│   ├── CampusPilot-技术文档.pdf   # 技术文档（27 页）
+│   ├── CampusPilot-技术文档.pdf   # 技术文档（29 页）
 │   └── demo-script.md            # 演示视频脚本（分镜 + 逐字口播）
 ├── server/
 │   ├── tsconfig.json
@@ -416,6 +441,9 @@ CampusPilot/
 │       ├── runtime.ts            # 单例装配（store / retriever / provider / 安全组件）
 │       ├── answer.ts             # 模板答案、引用列表、参考资料渲染
 │       ├── intent.ts             # 意图识别与按文档聚合
+│       ├── agent/
+│       │   ├── school.ts         # 读取 config/school.json 的部门 / 窗口 / 学期
+│       │   └── planner.ts        # 作答前工具路径选择、兜底与拒答/转人工文案
 │       ├── knowledge/
 │       │   ├── frontmatter.ts
 │       │   ├── chunker.ts
@@ -514,4 +542,4 @@ CampusPilot/
 4. 上传语料写入 `data/uploads/`，适合单实例演示；多实例或多用户场景应改为对象存储 + 数据库。
 5. 限流、额度、预览草稿均为进程内存储，重启清零；多实例需换 Redis。
 6. 输入过滤为规则实现，存在漏拦可能；后续可加分类模型与审计日志。
-7. 尚未接入真实办事系统（工具调用），目前只给指引、不代替用户提交申请。
+7. 尚未接入真实办事系统（写操作类工具调用，如真正下单、查办理进度）；当前的「工具路径选择」只决定作答方式与转人工，不代替用户提交申请。
