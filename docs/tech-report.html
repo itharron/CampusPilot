@@ -286,7 +286,7 @@
     <div><strong>指导教师</strong>张琳、刘进芬</div>
   </div>
 
-  <p class="date">2026 年 11 月 16 日</p>
+  <p class="date">2026 年 11 月 16–17 日</p>
 </section>
 
 <!-- ============ 文档说明与目录 ============ -->
@@ -294,7 +294,7 @@
 
 <p class="lead">
   本文档面向赛道评审，说明 CampusPilot 的问题背景、需求取舍、系统架构、AI 技术方案、核心功能实现与测试部署情况。
-  所有指标、参数与示例均来自仓库当前代码、随仓库发布的语料，以及 2026 年 11 月 16 日在本机的实测记录；没有使用设计稿、示意图冒充产品截图，也没有编造测试数据。
+  所有指标、参数与示例均来自仓库当前代码、随仓库发布的语料，以及 2026 年 11 月 16–17 日在本机的实测记录；没有使用设计稿、示意图冒充产品截图，也没有编造测试数据。
 </p>
 
 <table>
@@ -396,7 +396,7 @@
 
 <div class="note">
   <strong>关于「示例大学」：</strong>语料中的学校名、部门、电话均为示例数据，不对应任何真实学校。这样既能完整演示手册体例，
-  又避免把未经授权的真实校内信息放进公开仓库。换校方式见 4.7 节。
+  又避免把未经授权的真实校内信息放进公开仓库。换校方式见 4.10 节。
 </div>
 
 <h2>1.4 设计原则</h2>
@@ -426,7 +426,7 @@
 
 <p class="small">
   说明：本文档不使用产品截图，避免出现「截图与当前版本不一致」；所有界面行为都用可复现的文字描述与接口字段说明。
-  实测数值受网络、模型服务与机器负载影响，仅代表 2026-11-16 本机记录。
+  实测数值受网络、模型服务与机器负载影响，仅代表 2026 年 11 月 16–17 日的本机记录。
 </p>
 
 <!-- ============ 二、需求分析 ============ -->
@@ -1201,7 +1201,7 @@ HTTP/1.1 400 Bad Request
   <tr><td>浏览器</td><td>Chrome（含 headless，用于本文档打印）</td></tr>
   <tr><td>模型服务</td><td>OpenAI 兼容接口，<code>deepseek-v4-pro</code>（live 模式）</td></tr>
   <tr><td>检索</td><td>BM25（未配置 <code>EMBEDDING_MODEL</code>）</td></tr>
-  <tr><td>测试日期</td><td>2026-11-16</td></tr>
+  <tr><td>测试日期</td><td>2026 年 11 月 16–17 日</td></tr>
 </table>
 
 <h2>6.2 实测结果</h2>
@@ -1356,7 +1356,7 @@ npm start</code></pre>
 </p>
 
 <p>
-  2026-11-16 对线上环境复核：<code>/api/health</code> 返回 <code>ok=true</code>、<code>mode=live</code>、
+  2026 年 11 月 16 日对线上环境复核：<code>/api/health</code> 返回 <code>ok=true</code>、<code>mode=live</code>、
   <code>model=deepseek-v4-pro</code>、<code>retriever=bm25</code>、<code>corpus={docs:10,chunks:30,chars:3126}</code>；
   <code>/</code>、<code>/chat</code>、<code>/upload</code> 均返回 200，前端静态产物与仓库当前代码的本地构建一致。
 </p>
@@ -1518,7 +1518,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
   <tr><td>联系方式</td><td>见大赛报名系统</td></tr>
 </table>
 
-<h2>成员与分工</h2>
+<h2>九、团队信息</h2>
 
 <table>
   <tr>
@@ -1555,7 +1555,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 </table>
 
 <p class="footer-note">
-  CampusPilot 技术文档 · v1.10 · 2026-11-16 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
+  CampusPilot 技术文档 · v1.10 · 2026-11-16/17 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
   数据与代码版本以本文档提交时的 main 分支为准。
 </p>
 
