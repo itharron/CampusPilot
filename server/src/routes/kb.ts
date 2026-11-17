@@ -8,6 +8,7 @@ import { answerCache, retriever, store } from '../runtime';
 import { requireKbAuth } from './auth';
 import { IpRateLimiter } from '../safety/rateLimit';
 import { createDraft, getDraft, removeDraft } from '../upload/drafts';
+import { normalizeFileName } from '../upload/filename';
 import { ACCEPTED_EXTENSIONS, ACCEPTED_HINT, MAX_FILE_BYTES, MAX_FILE_MB, UploadError, extractText } from '../upload/parse';
 
 const UPLOAD_DIR = path.resolve(__dirname, '../../../data/uploads');
@@ -17,6 +18,8 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_BYTES, files: 1 },
   fileFilter: (_req, file, callback) => {
+    // multer 按 latin1 解码文件名，先还原成 UTF-8，后续校验与展示都用同一个名字
+    file.originalname = normalizeFileName(file.originalname);
     const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
       callback(new UploadError('UNSUPPORTED_TYPE', `不支持的文件类型：.${ext || '未知'}。允许上传 ${ACCEPTED_HINT}。`));
