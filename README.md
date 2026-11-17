@@ -70,8 +70,9 @@ Vite Dev Server (5173) ──proxy──▶ Node + TypeScript 后端 (8787)
                                     │     └─ hybridRetriever.ts  BM25 + 向量加权合并
                                     │
                                     ├── Agent 路径决策层 agent/
-                                    │     ├─ school.ts  读取 config/school.json 的部门 / 窗口 / 服务时间
-                                    │     └─ planner.ts 作答前选择 kb_search / refuse_out_of_scope / handoff_human
+                                    │     ├─ school.ts       读取 config/school.json 的部门 / 窗口 / 服务时间
+                                    │     ├─ interpreter.ts  口语 / 俗称 / 半句 / 错字归一化为标准问法
+                                    │     └─ planner.ts      作答前选择 kb_search / refuse_out_of_scope / handoff_human
                                     │
                                     ├── 引用与答案
                                     │     ├─ answer.ts   composeAnswer / buildCitations / renderContext
@@ -89,7 +90,7 @@ Vite Dev Server (5173) ──proxy──▶ Node + TypeScript 后端 (8787)
 **SSE 协议**：
 
 ```
-event: meta    → { mode, model, intent, route, topDocTitle, citations[], retrieval{name,hits,topScore,matched}, cached, quotaRemaining, rateRemaining }
+event: meta    → { mode, model, intent, interpretation{original,query,guessed,reason,candidates}, route, topDocTitle, citations[], retrieval{name,hits,topScore,matched}, cached, quotaRemaining, rateRemaining }
 event: delta   → { text }              // 增量片段
 event: done    → { cached, tokens }
 event: error   → { code, message }     // 已产出的内容保留
@@ -119,7 +120,7 @@ event: error   → { code, message }     // 已产出的内容保留
 | --- | --- | --- |
 | 俗称 / 同义词 | 冷气、一卡通、延考 / 延期考试、寝室 | 空调、校园卡、缓考、宿舍 |
 | 半句 / 单名词 | 空调、请假、证明 | 宿舍空调坏了怎么报修、请假怎么办理、在读证明怎么开 |
-| 错字 / 漏字 / 口语 | 空掉、正明、卡丢了、网上不去、我那个证明咋弄、寝室空调不冷、宿舍太热了 | 空调、证明、校园卡丢了怎么挂失补办、校园网连不上怎么报修、在读证明怎么开、宿舍空调不制冷怎么报修 |
+| 错字 / 漏字 / 口语 | 空掉、正明、卡丢了、网上不去、我那个证明咋弄、寝室空调不冷、宿舍太热了 | 宿舍空调坏了怎么报修、在读证明怎么开、校园卡丢了怎么挂失补办、校园网连不上怎么报修、在读证明怎么开、宿舍空调不制冷怎么报修、宿舍空调不制冷怎么报修 |
 
 推测结果随 `meta.interpretation`（`original / query / guessed / reason / candidates`）下发，界面在回答上方显示「推测 你问的是「…」」和一句依据，不假装确定；「证明」「请假」这类可能有两个方向的问题，再给一个候选按钮（成绩单 / 缓考），点一下即以候选问法重新提问。边界保持不变：认不出校内涵义就原样返回、交给拒答规则；「找辅导员」「投诉食堂找谁」「我要找宿管」这类找人诉求只统一叫法、不做场景补全，仍转人工；输入过滤在推测之前执行，隐私、注入与越界拦截一条不松。
 
@@ -148,7 +149,7 @@ event: error   → { code, message }     // 已产出的内容保留
 - `POST /api/kb/preview`：抽文本 → 把「第X章 / 第X条」短行规范为标题 → 切块 → 返回草稿（15 分钟有效）与切分预览、建议元信息。
 - `POST /api/kb/confirm`：确认标题 / 文档名 / 章节 / 条款 / 部门后，写入 `data/uploads/<id>.md`，立即 `store.reload()` + 重建索引 + 清空答案缓存，下一次提问即可命中。
 - 解析失败有明确错误码：`415 UNSUPPORTED_TYPE`、`413 FILE_TOO_LARGE`、`422 EMPTY_DOCUMENT`（扫描件抽不出文字）、`422 PARSE_FAILED`。
-- 上传接口单独限流（10 次/分钟/IP）。
+- `/api/kb/preview` 单独限流（10 次/分钟/IP）。
 - 入库需要登录：`POST /api/auth/login` 校验演示账号后发放内存 token（2 小时有效），`/api/kb/preview`、`/api/kb/confirm` 校验 `Authorization: Bearer <token>`，未登录返回 `401 UNAUTHORIZED`。演示账号为 `demo` / `campus2026`，页面上直接展示并可一键填入；账号仅用于演示，不承载真实数据权限，进程重启后 token 全部失效。浏览知识库列表与对话检索无需登录。
 
 ### 2.5 为什么 mock 也能完整演示
@@ -443,7 +444,7 @@ CampusPilot/
 ├── config/
 │   └── school.json               # 学校名、部门、入口、学期时间（换学校只改这里）
 ├── data/
-│   ├── sample/                   # 内置示例语料（10 条事项，手册体例）
+│   ├── sample/                   # 内置示例语料（11 条事项，手册体例）
 │   └── uploads/                  # 运行时上传入库的语料（不提交）
 ├── docs/
 │   ├── git-conventions.md        # Git 提交规范
@@ -460,6 +461,7 @@ CampusPilot/
 │       ├── intent.ts             # 意图识别与按文档聚合
 │       ├── agent/
 │       │   ├── school.ts         # 读取 config/school.json 的部门 / 窗口 / 学期
+│       │   ├── interpreter.ts    # 口语 / 俗称 / 半句 / 错字归一化与推测
 │       │   └── planner.ts        # 作答前工具路径选择、兜底与拒答/转人工文案
 │       ├── knowledge/
 │       │   ├── frontmatter.ts
@@ -494,6 +496,7 @@ CampusPilot/
     └── src/
         ├── main.ts / App.vue / router.ts
         ├── env.d.ts               # Vite 环境与 .vue 类型声明
+        ├── theme.ts               # 亮暗主题：跟随系统、手动记忆、首屏防白闪
         ├── pages/ChatPage.vue
         ├── pages/UploadPage.vue
         ├── api/auth.ts            # 登录与 token 状态
@@ -516,7 +519,7 @@ CampusPilot/
 
 | 姓名 | 年级专业 | 角色 | 负责内容 |
 | --- | --- | --- | --- |
-| 徐子润 | 2026 级 网络工程 | 前端与呈现 | 首页引导与示例问题、对话与引用卡片交互、移动端适配、上传页界面、语料整理（10 条事项的字段设计与文案）、测试用例执行、演示视频录制与剪辑、文档校对|
+| 徐子润 | 2026 级 网络工程 | 前端与呈现 | 首页引导与示例问题、对话与引用卡片交互、移动端适配、上传页界面、语料整理（11 条事项的字段设计与文案）、测试用例执行、演示视频录制与剪辑、文档校对|
 | 韩海荣 | 2026 级 网络空间安全 | 后端与 AI | 系统架构设计、意图识别与 BM25 检索、引用溯源、输入安全拦截与限流、登录鉴权、ECS 部署与运维、技术文档撰写、移动端实测、演示脚本补充镜头 |
 
 - 协作方式：Git 分支开发，提交信息遵循 [docs/git-conventions.md](docs/git-conventions.md)
@@ -553,7 +556,7 @@ CampusPilot/
 
 ## 附录 B：当前限制与下一步
 
-1. 语料是自编示例（10 条事项），可按 3.7 / 3.8 的步骤替换为真实手册；换学校不需要改代码。
+1. 语料是自编示例（11 条事项），可按 3.7 / 3.8 的步骤替换为真实手册；换学校不需要改代码。
 2. PDF 抽文本依赖文本层，扫描件不做 OCR，会明确提示。
 3. 向量检索需自行配置 `EMBEDDING_*`，默认不启用；未做重排序（rerank）。
 4. 上传语料写入 `data/uploads/`，适合单实例演示；多实例或多用户场景应改为对象存储 + 数据库。

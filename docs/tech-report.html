@@ -279,7 +279,7 @@
   <p class="kind">技 术 文 档</p>
 
   <div class="meta">
-    <div><strong>文档版本</strong>v1.11</div>
+    <div><strong>文档版本</strong>v1.12</div>
     <div><strong>对应代码</strong>v0.2.0 · 以提交时的 main 分支为准</div>
     <div><strong>团队名称</strong>想过周六</div>
     <div><strong>学校</strong>三江学院</div>
@@ -303,7 +303,7 @@
   <tr><td>代码版本</td><td>v0.2.0（根包与 server / web 子包一致），以本文档提交时的 main 分支为准</td></tr>
   <tr><td>线上演示</td><td><code>http://47.96.20.128:8787</code>（阿里云 ECS，单进程 Express 同时托管前端与 API）</td></tr>
   <tr><td>技术栈</td><td>Vue 3 + Vite + TypeScript（前端）；Node.js + Express + TypeScript（后端）；SSE 流式传输；BM25 / 可选向量混合检索</td></tr>
-  <tr><td>语料规模</td><td>本机 11 篇 / 34 片段 / 3413 字（10 篇内置示例 + 1 篇运行上传）；线上 10 篇 / 30 片段 / 3126 字（未同步该上传文档）</td></tr>
+  <tr><td>语料规模</td><td>仓库示例 11 篇 / 33 片段 / 3575 字；本机运行另含 1 篇上传文档，共 12 篇 / 37 片段 / 3862 字；线上在本次新增语料部署前为 10 篇 / 30 片段 / 3126 字，部署后与仓库示例一致</td></tr>
   <tr><td>运行环境</td><td>Windows，Node v24.18.0，npm 11.16.0；浏览器 Chrome</td></tr>
   <tr><td>文档数据来源</td><td><code>server/src</code> 源码、<code>data/</code> 语料、<code>config/school.json</code>、<code>/api/health</code> 与真实对话请求的响应</td></tr>
   <tr><td>团队信息</td><td>想过周六 · 三江学院 · 指导教师张琳、刘进芬；成员徐子润、韩海荣（详见第九章）</td></tr>
@@ -386,8 +386,8 @@
   <div>
     <h3>真实运行数据</h3>
     <ul>
-      <li>知识库：11 篇文档、34 个片段、3413 字。</li>
-      <li>内置 10 个办事事项：报修、校园卡、校园网、教室借用、在读证明、缓考补考、休学复学、请假、奖学金、违纪申诉。</li>
+      <li>知识库：仓库示例 11 篇文档、33 个片段、3575 字；本机运行另含 1 篇上传文档，共 12 篇、37 个片段、3862 字。</li>
+      <li>内置 11 个办事事项：报修、校园卡、校园网、教室借用、在读证明、成绩单打印、缓考补考、休学复学、请假、奖学金、违纪申诉。</li>
       <li>1 篇运行期上传文档「图书馆研讨间预约」，4 个片段，已参与检索。</li>
       <li>检索方式：BM25（未配置向量模型时的默认实现）。</li>
     </ul>
@@ -535,9 +535,10 @@ Vite 开发服务器（5173） ──代理──▶ Express + TypeScript（8787
 
 <ol>
   <li><strong>输入过滤</strong>：空输入、超过 500 字、注入 / 越界 / 隐私信息直接返回 400，不消耗额度。</li>
+  <li><strong>提问归一化</strong>：<code>agent/interpreter.ts</code> 把半句、俗称与常见错字补成校内标准问法，后续缓存键、检索与路径判定都用归一化结果。</li>
   <li><strong>单 IP 限流</strong>：固定窗口 60 秒，上限 20 次；超限返回 429 与 <code>Retry-After</code>。</li>
   <li><strong>每日额度</strong>：按 IP 统计当天请求数与 token 估算值；超限返回 429。</li>
-  <li><strong>答案缓存</strong>：命中则按原引用流式回放，<code>tokens=0</code>，不再检索与调用模型。</li>
+  <li><strong>答案缓存</strong>：以归一化问法为键，命中则按原引用流式回放，<code>tokens=0</code>，不再检索与调用模型。</li>
   <li><strong>检索与组装</strong>：BM25 取 topK=4 → 按文档与「办理步骤」重排 → 生成意图与引用 → 渲染编号参考资料。</li>
   <li><strong>路径决策</strong>：<code>agent/planner.ts</code> 依据意图、关键词覆盖率与线索，选择 <code>kb_search</code> / <code>refuse_out_of_scope</code> / <code>handoff_human</code>，结果随 meta 下发并写入缓存。</li>
   <li><strong>流式生成</strong>：知识库路径调用 Provider 逐段输出；拒答与转人工由服务端固定文案本地流式输出，不调用模型。结束后累计 token、写入缓存；异常时用本地模板兜底。</li>
@@ -547,7 +548,7 @@ Vite 开发服务器（5173） ──代理──▶ Express + TypeScript（8787
 
 <table>
   <tr><th style="width:14%">事件</th><th style="width:52%">载荷</th><th>前端行为</th></tr>
-  <tr><td><code>meta</code></td><td><code>{ mode, model, intent, route, topDocTitle, citations[], retrieval, cached, quotaRemaining, rateRemaining }</code></td><td>渲染本次路径、依据、意图、检索方式、引用卡片与剩余额度；非知识库路径不渲染引用。</td></tr>
+  <tr><td><code>meta</code></td><td><code>{ mode, model, intent, interpretation{original,query,guessed,reason,candidates}, route, topDocTitle, citations[], retrieval, cached, quotaRemaining, rateRemaining }</code></td><td>渲染本次路径、依据、意图、推测提示、检索方式、引用卡片与剩余额度；非知识库路径不渲染引用。</td></tr>
   <tr><td><code>delta</code></td><td><code>{ text }</code></td><td>追加到气泡，保持光标，滚动到底部。</td></tr>
   <tr><td><code>done</code></td><td><code>{ cached, tokens }</code></td><td>结束流式状态，减少一次剩余额度。</td></tr>
   <tr><td><code>error</code></td><td><code>{ code, message }</code></td><td>保留已输出内容，在气泡下展示错误说明。</td></tr>
@@ -568,6 +569,7 @@ Vite 开发服务器（5173） ──代理──▶ Express + TypeScript（8787
   <tr><td>知识库</td><td>递归扫描 Markdown，解析 frontmatter，按标题切块，生成带出处的片段。</td><td><code>knowledge/store.ts</code>、<code>chunker.ts</code></td></tr>
   <tr><td>检索</td><td>中文切词、BM25 索引、可选向量、分数归一化与混合。</td><td><code>retrieval/*</code></td></tr>
   <tr><td>答案与引用</td><td>片段重排、引用列表、参考资料渲染、模板答案。</td><td><code>answer.ts</code>、<code>intent.ts</code></td></tr>
+  <tr><td>提问归一化</td><td>口语、俗称、半句与常见错字归一化为校内标准问法，并生成可改选的候选方向。</td><td><code>agent/interpreter.ts</code></td></tr>
   <tr><td>路径决策</td><td>作答前选择工具，生成结构化决策、判定依据与转人工部门信息；异常时回退知识库。</td><td><code>agent/planner.ts</code>、<code>agent/school.ts</code></td></tr>
   <tr><td>安全</td><td>输入过滤、限流、每日额度、答案缓存。</td><td><code>safety/*</code></td></tr>
   <tr><td>上传入库</td><td>PDF / DOCX 抽文本、规范化、预览草稿、确认写入与索引重建。</td><td><code>upload/*</code>、<code>routes/kb.ts</code></td></tr>
@@ -580,14 +582,14 @@ Vite 开发服务器（5173） ──代理──▶ Express + TypeScript（8787
 <pre><code>CampusPilot/
 ├── config/school.json          # 学校名、学期、部门与入口（换校只改这里）
 ├── data/
-│   ├── sample/                 # 10 篇内置手册体例语料
+│   ├── sample/                 # 11 篇内置手册体例语料
 │   └── uploads/                # 运行时上传入库（不提交）
 ├── docs/                       # Git 规范、技术文档
 ├── server/src/
 │   ├── index.ts                # /api/health、/api/meta、/api/chat、/api/kb、/api/auth
 │   ├── config.ts / runtime.ts  # 配置与单例装配
 │   ├── answer.ts / intent.ts   # 引用、模板答案、意图
-│   ├── agent/                  # school.ts（读取学校配置）/ planner.ts（作答前路径决策）
+│   ├── agent/                  # school.ts（读学校配置）/ interpreter.ts（提问归一化）/ planner.ts（路径决策）
 │   ├── knowledge/              # frontmatter / chunker / store / types
 │   ├── retrieval/              # tokenizer / bm25 / embedding / hybridRetriever
 │   ├── upload/                 # parse / drafts
@@ -642,7 +644,7 @@ GET /api/nonexistent → 404，JSON {"ok":false,"code":"NOT_FOUND"}</code></pre>
   <tr>
     <td>检索</td>
     <td>BM25 为主，可选向量混合（0.65 / 0.35）</td>
-    <td>校园手册关键词密度高，中文「单字 + 双字」即可覆盖口语问法；当前 34 个片段用内存索引足够，评审机器无需 GPU、无需下载权重。配置 embedding 后自动升级，失败自动退回 BM25。</td>
+    <td>校园手册关键词密度高，中文「单字 + 双字」即可覆盖口语问法；当前 33 个示例片段用内存索引足够，评审机器无需 GPU、无需下载权重。配置 embedding 后自动升级，失败自动退回 BM25。</td>
     <td>向量数据库、Elasticsearch：增加部署与运维依赖，对当前语料规模收益有限</td>
   </tr>
   <tr>
@@ -654,7 +656,7 @@ GET /api/nonexistent → 404，JSON {"ok":false,"code":"NOT_FOUND"}</code></pre>
   <tr>
     <td>意图识别</td>
     <td>复用检索结果的文档聚合</td>
-    <td>没有标注数据，训练分类器成本高且冷启动不可用；用「第一名与第二名文档的分差」估置信度，语料内问题稳定在 0.87–0.99。</td>
+    <td>没有标注数据，训练分类器成本高且冷启动不可用；用「第一名与第二名文档的分差」估置信度，实测常见问法在 0.75–0.99，措辞越接近手册原文越高。</td>
     <td>独立文本分类模型：需要标注集与模型产物</td>
   </tr>
   <tr>
@@ -689,8 +691,9 @@ GET /api/nonexistent → 404，JSON {"ok":false,"code":"NOT_FOUND"}</code></pre>
   所有 AI 能力收敛在一条固定流水线里，路由层不直接调用模型，也不在页面里拼检索逻辑：
 </p>
 
-<pre><code>输入过滤 → 单 IP 限流 → 每日额度 → 答案缓存 → 检索（BM25/混合）
-        → 引用与意图 → 组装 Prompt → Provider.stream() → 记账/缓存 → SSE</code></pre>
+<pre><code>输入过滤 → 提问归一化/推测 → 单 IP 限流 → 每日额度 → 答案缓存（键为归一化问法）
+        → 检索（BM25/混合）→ 引用与意图 → 路径决策 → 组装 Prompt
+        → Provider.stream() → 记账/缓存 → SSE</code></pre>
 
 <ul>
   <li><strong>接口解耦</strong>：检索侧统一 <code>Retriever.search(query, options)</code>，模型侧统一
@@ -834,7 +837,7 @@ else path = 'refuse';</code></pre>
   <tr><th style="width:16%">类型</th><th style="width:38%">例子</th><th>归一化结果</th></tr>
   <tr><td>俗称 / 同义词</td><td>冷气、一卡通、延考 / 延期考试、寝室</td><td>空调、校园卡、缓考、宿舍</td></tr>
   <tr><td>半句 / 单名词</td><td>空调、请假、证明</td><td>宿舍空调坏了怎么报修、请假怎么办理、在读证明怎么开</td></tr>
-  <tr><td>错字 / 漏字 / 口语</td><td>空掉、正明、卡丢了、网上不去、我那个证明咋弄、寝室空调不冷、宿舍太热了</td><td>空调、证明、校园卡丢了怎么挂失补办、校园网连不上怎么报修、在读证明怎么开、宿舍空调不制冷怎么报修</td></tr>
+  <tr><td>错字 / 漏字 / 口语</td><td>空掉、正明、卡丢了、网上不去、我那个证明咋弄、寝室空调不冷、宿舍太热了</td><td>宿舍空调坏了怎么报修、在读证明怎么开、校园卡丢了怎么挂失补办、校园网连不上怎么报修、在读证明怎么开、宿舍空调不制冷怎么报修、宿舍空调不制冷怎么报修</td></tr>
 </table>
 
 <p>
@@ -1141,8 +1144,8 @@ HTTP/1.1 400 Bad Request
 </table>
 
 <p>
-  仓库中现存的 <code>data/uploads/upload-mwi0bydp.md</code>（「图书馆研讨间预约」，4 个片段）就是通过该流程入库的真实产物，
-  已出现在 <code>/api/kb/docs</code> 与检索语料中。
+  本机运行期上传的 <code>data/uploads/upload-mwi0bydp.md</code>（「图书馆研讨间预约」，4 个片段）就是通过该流程入库的真实产物（该目录被 <code>.gitignore</code> 忽略，不随仓库分发），
+  入库后已出现在 <code>/api/kb/docs</code> 与检索语料中。
 </p>
 
 <h2>5.5 移动端适配</h2>
@@ -1238,7 +1241,7 @@ HTTP/1.1 400 Bad Request
   <tr>
     <td>健康检查</td>
     <td><code>GET /api/health</code></td>
-    <td><code>mode=live</code>、<code>model=deepseek-v4-pro</code>、<code>retriever=bm25</code>、<code>corpus={docs:11,chunks:34,chars:3413}</code></td>
+    <td><code>mode=live</code>、<code>model=deepseek-v4-pro</code>、<code>retriever=bm25</code>、<code>corpus={docs:12,chunks:37,chars:3862}</code>（本机含 1 篇上传文档；仓库示例为 11/33/3575）</td>
   </tr>
   <tr>
     <td>真实模型回答</td>
@@ -1278,7 +1281,7 @@ HTTP/1.1 400 Bad Request
   <tr>
     <td>知识库列表</td>
     <td><code>GET /api/kb/docs</code></td>
-    <td>11 篇；其中 10 篇 <code>origin=sample</code>，1 篇 <code>origin=upload</code>（4 个片段）</td>
+    <td>12 篇；其中 11 篇 <code>origin=sample</code>，1 篇 <code>origin=upload</code>（4 个片段）</td>
   </tr>
   <tr>
     <td>深链接回退</td>
@@ -1396,14 +1399,14 @@ npm start</code></pre>
 
 <p>
   2026 年 11 月 16 日对线上环境复核：<code>/api/health</code> 返回 <code>ok=true</code>、<code>mode=live</code>、
-  <code>model=deepseek-v4-pro</code>、<code>retriever=bm25</code>、<code>corpus={docs:10,chunks:30,chars:3126}</code>；
+  <code>model=deepseek-v4-pro</code>、<code>retriever=bm25</code>、<code>corpus={docs:10,chunks:30,chars:3126}</code>（本次新增「成绩单打印」语料部署前的线上状态，部署后为 11/33/3575）；
   <code>/</code>、<code>/chat</code>、<code>/upload</code> 均返回 200，前端静态产物与仓库当前代码的本地构建一致。
 </p>
 
 <h2>6.6 已知限制</h2>
 
 <ol>
-  <li>语料是自编示例（10 条事项 + 1 条上传），替换为真实手册前，回答只能覆盖这 11 篇文档。</li>
+  <li>语料是自编示例（11 条事项 + 1 条上传），替换为真实手册前，回答只能覆盖这 12 篇文档。</li>
   <li>PDF 抽文本依赖文本层，不做 OCR；扫描件会明确报错。</li>
   <li>向量检索默认关闭，未做 rerank；BM25 对同义改写（如「制冷不行」与「不制冷」）仍可能漏召回。</li>
   <li>限流、额度、会话、预览草稿均为进程内存储，重启清零；多实例部署需换 Redis 与共享存储。</li>
@@ -1481,7 +1484,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
 <h3>7.1.4 成本护栏做在入口，而不是事后统计</h3>
 
 <p>
-  输入过滤 → 限流 → 每日额度 → 缓存 → 检索 → 模型调用是固定顺序，前四步任何一步拒绝都不会产生模型费用；
+  输入过滤 → 提问归一化 → 限流 → 每日额度 → 缓存 → 检索 → 路径决策 → 模型调用是固定顺序，任何一步拒绝都不会产生模型费用；
   缓存按归一化问题命中并回放引用，实测把 9.99 秒、126 tokens 的请求降为 684 毫秒、0 token。
 </p>
 
@@ -1558,7 +1561,7 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
   <tr><td>联系方式</td><td>见大赛报名系统</td></tr>
 </table>
 
-<h2>九、团队信息</h2>
+<h2>成员分工</h2>
 
 <table>
   <tr>
@@ -1571,13 +1574,13 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
     <td>徐子润</td>
     <td>2026 级 网络工程</td>
     <td>前端与呈现</td>
-    <td>首页引导与示例问题、对话与引用卡片交互、移动端适配、上传页界面、语料整理（10 条事项的字段设计与文案）、测试用例执行、演示视频录制与剪辑</td>
+    <td>首页引导与示例问题、对话与引用卡片交互、移动端适配、上传页界面、语料整理（11 条事项的字段设计与文案）、测试用例执行、演示视频录制与剪辑、文档校对</td>
   </tr>
   <tr>
     <td>韩海荣</td>
     <td>2026 级 网络空间安全</td>
     <td>后端与 AI</td>
-    <td>系统架构设计、意图识别与 BM25 检索、引用溯源、输入安全拦截与限流、登录鉴权、ECS 部署与运维、技术文档撰写</td>
+    <td>系统架构设计、意图识别与 BM25 检索、引用溯源、输入安全拦截与限流、登录鉴权、ECS 部署与运维、技术文档撰写、移动端实测、演示脚本补充镜头</td>
   </tr>
 </table>
 
@@ -1591,11 +1594,11 @@ curl.exe -s -o - -w "%{http_code}" -H "Content-Type: application/json" ^
   <tr><td>安全与成本控制</td><td><code>server/src/safety/</code>、<code>server/src/routes/chat.ts</code></td></tr>
   <tr><td>上传与鉴权</td><td><code>server/src/routes/kb.ts</code>、<code>server/src/routes/auth.ts</code>、<code>server/src/upload/</code></td></tr>
   <tr><td>学校配置与语料</td><td><code>config/school.json</code>、<code>data/sample/</code>、<code>data/uploads/</code></td></tr>
-  <tr><td>运行指南</td><td><code>README.md</code> 第二、三节</td></tr>
+  <tr><td>运行指南</td><td><code>README.md</code> 第三节</td></tr>
 </table>
 
 <p class="footer-note">
-  CampusPilot 技术文档 · v1.11 · 2026-11-16/17 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
+  CampusPilot 技术文档 · v1.12 · 2026-11-16/17 · 本文档由仓库内 <code>docs/tech-report.html</code> 经 Chrome 打印生成，
   数据与代码版本以本文档提交时的 main 分支为准。
 </p>
 
