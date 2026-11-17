@@ -3,7 +3,8 @@
 - 当前版本：**v0.2.0**
 - 线上演示：<http://47.96.20.128:8787>（阿里云 ECS，单进程 Express 同时托管前端与 API）
 - 技术文档：[docs/CampusPilot-技术文档.pdf](docs/CampusPilot-技术文档.pdf)（PDF，30 页）
-- 演示视频脚本：[docs/demo-script.md](docs/demo-script.md)
+- 作品介绍文档：[docs/CampusPilot-作品介绍文档.pdf](docs/CampusPilot-作品介绍文档.pdf)（PDF，5 页）
+- 演示视频脚本：[docs/demo-script.md](docs/demo-script.md)（唯一脚本，15 段 / 7:37，按录制顺序）
 
 ## 一、项目介绍
 
@@ -450,7 +451,10 @@ CampusPilot/
 │   ├── git-conventions.md        # Git 提交规范
 │   ├── tech-report.html          # 技术文档源文件（Chrome 打印生成 PDF）
 │   ├── CampusPilot-技术文档.pdf   # 技术文档（30 页）
-│   └── demo-script.md            # 演示视频脚本（分镜 + 逐字口播）
+│   ├── intro-report.html         # 作品介绍文档源文件（Chrome 打印生成 PDF）
+│   ├── CampusPilot-作品介绍文档.pdf # 作品介绍文档（5 页）
+│   ├── intro-assets/             # 作品介绍文档用的公网实测截图
+│   └── demo-script.md            # 演示视频脚本（唯一脚本，15 段 / 7:37）
 ├── server/
 │   ├── tsconfig.json
 │   └── src/

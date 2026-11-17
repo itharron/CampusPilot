@@ -24,3 +24,7 @@ Thumbs.db
 
 # 测试覆盖率
 coverage/
+
+# 内部材料：保留在工作区，不随仓库分发
+docs/demo-script-extra-mobile-theme.md
+docs/teammate-first-commit-guide.md
